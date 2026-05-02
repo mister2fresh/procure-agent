@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# uv
+.uv/
+uv.lock
+
+# Env files
+.env
+.env.local
+*.env.secret
+
+# Testing
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Generated artifacts (keep fixtures, ignore runtime outputs)
+data/runs/
+data/outputs/
+*.db
+*.sqlite
+*.sqlite3
+
+# LangSmith / Streamlit local state
+.langsmith/
+.streamlit/secrets.toml
