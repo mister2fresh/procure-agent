@@ -1,0 +1,135 @@
+"""From-scratch ReAct agent loop. Day 1 reference implementation.
+
+The agent reads a synthetic supplier quote fixture from `data/synthetic_quotes/` and
+returns a structured `Quote` JSON object matching `procure_agent.schemas.Quote`.
+
+This file gets translated to LangGraph nodes/edges in
+`docs/from_primitives_to_langgraph.md` once the loop runs end-to-end against at least
+one fixture.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from anthropic import Anthropic
+from anthropic.types import Message
+from dotenv import load_dotenv
+
+load_dotenv()
+
+MODEL = "claude-sonnet-4-6"
+MAX_TOKENS = 4096
+QUOTES_DIR = Path(__file__).resolve().parents[2] / "data" / "synthetic_quotes"
+
+client = Anthropic()
+
+
+READ_FILE_TOOL = {
+    "name": "read_file",
+    "description": (
+        "Read the contents of a synthetic supplier quote fixture by filename. "
+        "Returns the raw text of the quote document."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "filename": {
+                "type": "string",
+                "description": (
+                    "Filename within data/synthetic_quotes/, "
+                    "e.g. '01_aloe_corp_clean_tabular.txt'."
+                ),
+            },
+        },
+        "required": ["filename"],
+    },
+}
+
+
+def read_file(filename: str) -> str:
+    """Read a fixture from the synthetic-quotes directory.
+
+    Args:
+        filename: Bare filename within `data/synthetic_quotes/`. Path traversal
+            (anything that resolves outside the directory) is rejected.
+
+    Returns:
+        The file's text contents.
+
+    Raises:
+        ValueError: If the filename escapes the quotes directory or doesn't exist.
+    """
+    target = (QUOTES_DIR / filename).resolve()
+    if QUOTES_DIR not in target.parents:
+        raise ValueError(f"path escapes quotes directory: {filename}")
+    if not target.is_file():
+        raise ValueError(f"fixture not found: {filename}")
+    return target.read_text()
+
+
+HANDLERS = {"read_file": read_file}
+TOOLS = [READ_FILE_TOOL]
+
+
+# TODO (you write this): the system prompt is the agent's job description.
+# Things the prompt should establish:
+#   - Role: extract a structured Quote from a synthetic supplier quote document.
+#   - Tool available: read_file(filename) returning raw text from data/synthetic_quotes/.
+#   - Output shape: JSON matching procure_agent.schemas.Quote
+#       (supplier_name, supplier_ref, issued_date, valid_through, line_items[],
+#        payment_terms, shipping_terms, raw_notes).
+#   - Normalization rules from build_log.md:
+#       UoM canonical lowercase ('kg', 'lb', 'each', ...),
+#       SKUs uppercase, dates ISO 8601.
+#   - Return the final answer as a JSON object (a fenced code block is fine).
+SYSTEM = "TODO: write the system prompt."
+
+
+def run(user_msg: str, max_turns: int = 10) -> Message:
+    """Run the ReAct loop until the model stops calling tools or max_turns is hit.
+
+    Args:
+        user_msg: First user turn. Typically points the agent at a specific fixture.
+        max_turns: Hard cap on tool-use cycles to prevent runaway runs.
+
+    Returns:
+        The final assistant `Message` whose `stop_reason` is not `"tool_use"`.
+
+    Raises:
+        RuntimeError: If `max_turns` is exhausted without a non-tool-use stop.
+    """
+    messages: list[dict] = [{"role": "user", "content": user_msg}]
+    for _ in range(max_turns):
+        resp = client.messages.create(
+            model=MODEL,
+            max_tokens=MAX_TOKENS,
+            system=SYSTEM,
+            tools=TOOLS,
+            messages=messages,
+        )
+        messages.append({"role": "assistant", "content": resp.content})
+        if resp.stop_reason != "tool_use":
+            return resp
+        results = [
+            {
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": json.dumps(HANDLERS[block.name](**block.input)),
+            }
+            for block in resp.content
+            if block.type == "tool_use"
+        ]
+        messages.append({"role": "user", "content": results})
+    raise RuntimeError(f"max_turns={max_turns} exceeded")
+
+
+if __name__ == "__main__":
+    # TODO (you write this): one live run against a fixture.
+    # Sketch:
+    #     resp = run("Extract the quote in 01_aloe_corp_clean_tabular.txt as JSON.")
+    #     for block in resp.content:
+    #         if block.type == "text":
+    #             print(block.text)
+    pass
