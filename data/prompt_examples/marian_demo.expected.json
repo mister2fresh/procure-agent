@@ -1,0 +1,41 @@
+{
+  "supplier_name": "Marian Ag",
+  "supplier_ref": "Q-2026-0431",
+  "customer_ref": "2F-104",
+  "issued_date": "2026-04-15",
+  "valid_through": null,
+  "line_items": [
+    {
+      "requested_sku": "MAG-AM-01",
+      "supplier_sku": "MAG-AM-01",
+      "description": "Alfalfa Meal",
+      "pack_size": "1 lb",
+      "quantity": "300",
+      "uom": "each",
+      "unit_price": "12.50",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "MAG-FF-01",
+      "supplier_sku": "MAG-FF-01",
+      "description": "Fulvic Flow",
+      "pack_size": null,
+      "quantity": "50",
+      "uom": "gal",
+      "unit_price": "48.00",
+      "currency": null,
+      "tier_prices": [
+        {"min_qty": "100", "unit_price": "44.00"},
+        {"min_qty": "250", "unit_price": "40.00"}
+      ],
+      "min_order_qty": "30",
+      "notes": null
+    }
+  ],
+  "payment_terms": "Net 30",
+  "shipping_terms": "FOB origin",
+  "raw_notes": null
+}

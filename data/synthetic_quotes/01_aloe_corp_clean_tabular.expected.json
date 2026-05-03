@@ -1,6 +1,7 @@
 {
   "supplier_name": "Aloe Corp.",
   "supplier_ref": "AC-2026-0421",
+  "customer_ref": null,
   "issued_date": "2026-04-21",
   "valid_through": "2026-05-21",
   "line_items": [
@@ -8,6 +9,7 @@
       "requested_sku": "AL101",
       "supplier_sku": "AL101",
       "description": "Aloe Vera Extract, food grade",
+      "pack_size": null,
       "quantity": "50",
       "uom": "kg",
       "unit_price": "300.00",

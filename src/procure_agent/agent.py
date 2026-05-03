@@ -17,6 +17,8 @@ from anthropic import Anthropic
 from anthropic.types import Message
 from dotenv import load_dotenv
 
+from procure_agent.prompts import SYSTEM
+
 load_dotenv()
 
 MODEL = "claude-sonnet-4-6"
@@ -71,20 +73,6 @@ def read_file(filename: str) -> str:
 
 HANDLERS = {"read_file": read_file}
 TOOLS = [READ_FILE_TOOL]
-
-
-# TODO (you write this): the system prompt is the agent's job description.
-# Things the prompt should establish:
-#   - Role: extract a structured Quote from a synthetic supplier quote document.
-#   - Tool available: read_file(filename) returning raw text from data/synthetic_quotes/.
-#   - Output shape: JSON matching procure_agent.schemas.Quote
-#       (supplier_name, supplier_ref, issued_date, valid_through, line_items[],
-#        payment_terms, shipping_terms, raw_notes).
-#   - Normalization rules from build_log.md:
-#       UoM canonical lowercase ('kg', 'lb', 'each', ...),
-#       SKUs uppercase, dates ISO 8601.
-#   - Return the final answer as a JSON object (a fenced code block is fine).
-SYSTEM = "TODO: write the system prompt."
 
 
 def run(user_msg: str, max_turns: int = 10) -> Message:

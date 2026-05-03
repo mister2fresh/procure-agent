@@ -25,7 +25,8 @@ uv run pytest              # tests + evals
 
 ```
 src/procure_agent/      package code
-data/synthetic_quotes/  hand-crafted supplier quote fixtures
+data/synthetic_quotes/  hand-crafted supplier quote fixtures (eval corpus)
+data/prompt_examples/   held-out demo fixture for the system-prompt few-shot
 data/inventory/         reference inventory CSVs
 evals/                  pytest-driven eval harness + golden set
 tests/                  unit tests

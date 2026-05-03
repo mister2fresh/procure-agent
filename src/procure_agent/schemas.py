@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 class TierPrice(BaseModel):
     """A quantity break in tier pricing."""
 
-    min_qty: int = Field(..., description="Minimum quantity to qualify for this tier.")
+    min_qty: Decimal = Field(..., description="Minimum quantity to qualify for this tier.")
     unit_price: Decimal
 
 
@@ -37,13 +37,21 @@ class QuoteLineItem(BaseModel):
         description="SKU the supplier offered. None if the quote is prose-only or omits one.",
     )
     description: str
+    pack_size: str | None = Field(
+        None,
+        description="Unit pack as written by the supplier ('4 oz', 'case of 12', '1 gal jug').",
+    )
     quantity: Decimal
     uom: str = Field(
         ...,
         description="Canonical UoM, lowercase ('kg', 'lb', 'oz', 'gal', 'l', 'each', 'case').",
     )
     unit_price: Decimal
-    currency: str = "USD"
+    currency: str | None = Field(
+        None,
+        description="ISO currency code as stated by the document (e.g. 'USD'). None when only a "
+        "bare symbol like '$' is present; downstream applies the default.",
+    )
     tier_prices: list[TierPrice] = Field(default_factory=list)
     min_order_qty: Decimal | None = Field(
         None, description="Supplier-stated minimum order quantity for this line item, if any."
@@ -57,6 +65,13 @@ class Quote(BaseModel):
     supplier_name: str
     supplier_ref: str | None = Field(
         None, description="Quote number or reference issued by the supplier."
+    )
+    customer_ref: str | None = Field(
+        None,
+        description="Persistent customer identifier — the supplier's stable ID for this buyer "
+        "in their system (Customer #, Account #, customer code, Bill-To ID). Same value across "
+        "every quote that supplier sends. Distinct from per-transaction refs (RFQ #, PO #) "
+        "which are not captured at this stage.",
     )
     issued_date: date | None = None
     valid_through: date | None = None

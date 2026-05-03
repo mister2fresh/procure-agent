@@ -1,13 +1,15 @@
 {
   "supplier_name": "Rootwise Biologicals",
   "supplier_ref": "RW-2026-0419",
+  "customer_ref": null,
   "issued_date": "2026-04-19",
   "valid_through": null,
   "line_items": [
     {
       "requested_sku": "RMC101",
       "supplier_sku": "RMC101",
-      "description": "4oz Microbe Complete",
+      "description": "Microbe Complete",
+      "pack_size": "4 oz",
       "quantity": "30",
       "uom": "each",
       "unit_price": "15.00",
@@ -19,5 +21,5 @@
   ],
   "payment_terms": "Net 30",
   "shipping_terms": "FOB Portland, OR",
-  "raw_notes": "Buyer ref RFQ-1143."
+  "raw_notes": null
 }
