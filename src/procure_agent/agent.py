@@ -11,6 +11,8 @@ one fixture.
 from __future__ import annotations
 
 import json
+import re
+import sys
 from pathlib import Path
 
 from anthropic import Anthropic
@@ -18,6 +20,7 @@ from anthropic.types import Message
 from dotenv import load_dotenv
 
 from procure_agent.prompts import SYSTEM
+from procure_agent.schemas import Quote
 
 load_dotenv()
 
@@ -113,11 +116,25 @@ def run(user_msg: str, max_turns: int = 10) -> Message:
     raise RuntimeError(f"max_turns={max_turns} exceeded")
 
 
+DEFAULT_FIXTURE = "01_aloe_corp_clean_tabular.txt"
+JSON_BLOCK = re.compile(r"```json\s*(.*?)\s*```", re.DOTALL)
+
+
+def _extract_json_block(resp: Message) -> str:
+    """Pull the single fenced ```json``` block from the final assistant message.
+
+    Raises:
+        ValueError: If no fenced JSON block is found.
+    """
+    text = "".join(block.text for block in resp.content if block.type == "text")
+    match = JSON_BLOCK.search(text)
+    if not match:
+        raise ValueError(f"no fenced json block in response:\n{text}")
+    return match.group(1)
+
+
 if __name__ == "__main__":
-    # TODO (you write this): one live run against a fixture.
-    # Sketch:
-    #     resp = run("Extract the quote in 01_aloe_corp_clean_tabular.txt as JSON.")
-    #     for block in resp.content:
-    #         if block.type == "text":
-    #             print(block.text)
-    pass
+    fixture = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_FIXTURE
+    resp = run(f"Extract the quote in {fixture} as JSON.")
+    quote = Quote.model_validate_json(_extract_json_block(resp))
+    print(quote.model_dump_json(indent=2))

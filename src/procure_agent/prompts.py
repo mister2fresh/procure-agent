@@ -21,7 +21,7 @@ TEMPLATE = """\
 You extract one supplier quote into a structured JSON object. Output feeds a downstream reconciliation/matching step — be precise and terse, not chatty.
 
 # Tool
-`read_file(filename) -> str`. The user message names the fixture. Call it once, then emit the JSON. Do not call `read_file` more than once. If the call returns empty or errors, emit a JSON object with all fields `null` and put a short description of the failure in `raw_notes`.
+`read_file(filename) -> str`. The user message names the fixture. Call it once, then emit the JSON. Do not call `read_file` more than once. If the call returns empty or errors, do **not** emit a JSON block — emit a single line `ERROR: <short description>` and stop.
 
 # Output contract
 Exactly one fenced ```json block. No preamble, no trailing prose, no second block.
