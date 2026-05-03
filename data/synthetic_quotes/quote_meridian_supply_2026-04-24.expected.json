@@ -1,0 +1,109 @@
+{
+  "supplier_name": "Meridian Supply Co.",
+  "supplier_ref": "MSC-04-26-0992",
+  "customer_ref": null,
+  "rfq_ref": "NSM-RFQ-0419",
+  "issued_date": "2026-04-24",
+  "valid_through": "2026-05-24",
+  "line_items": [
+    {
+      "requested_sku": "NITRILE-M-100",
+      "supplier_sku": "NITRILE-M-100",
+      "description": "Nitrile gloves, 4mil, medium",
+      "pack_size": "100/box",
+      "quantity": "24",
+      "uom": "each",
+      "unit_price": "11.40",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": "20",
+      "notes": null
+    },
+    {
+      "requested_sku": "NITRILE-L-100",
+      "supplier_sku": "NITRILE-L-100",
+      "description": "Nitrile gloves, 4mil, large",
+      "pack_size": "100/box",
+      "quantity": "36",
+      "uom": "each",
+      "unit_price": "11.40",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": "20",
+      "notes": null
+    },
+    {
+      "requested_sku": "SHOPRAG-25",
+      "supplier_sku": "SHOPRAG-25",
+      "description": "Shop rags, red",
+      "pack_size": "25 lb compressed bale",
+      "quantity": "6",
+      "uom": "each",
+      "unit_price": "42.00",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "LUBE-WD40-1G",
+      "supplier_sku": "LUBE-WD40-1G",
+      "description": "Multi-purpose lubricant, 1 gallon",
+      "pack_size": null,
+      "quantity": "12",
+      "uom": "gal",
+      "unit_price": "38.50",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "EARPLG-FOAM",
+      "supplier_sku": "EARPLG-FOAM",
+      "description": "Disposable foam earplugs, NRR 32, corded",
+      "pack_size": null,
+      "quantity": "1000",
+      "uom": "each",
+      "unit_price": "0.24",
+      "currency": null,
+      "tier_prices": [
+        {"min_qty": "100", "unit_price": "0.32"},
+        {"min_qty": "500", "unit_price": "0.24"},
+        {"min_qty": "2000", "unit_price": "0.18"},
+        {"min_qty": "5000", "unit_price": "0.14"}
+      ],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "KMEAL-OMRI-50",
+      "supplier_sku": "KMEAL-OMRI-50",
+      "description": "Kelp meal, OMRI listed",
+      "pack_size": "50 lb bag",
+      "quantity": "20",
+      "uom": "each",
+      "unit_price": "74.25",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": "10",
+      "notes": null
+    },
+    {
+      "requested_sku": "TWINE-NAT-9K",
+      "supplier_sku": "TWINE-NAT-9K",
+      "description": "Natural fiber baling twine",
+      "pack_size": "9000 ft per bale",
+      "quantity": "4",
+      "uom": "each",
+      "unit_price": "58.00",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    }
+  ],
+  "payment_terms": "Net 45",
+  "shipping_terms": "FOB Origin (Phoenix)",
+  "raw_notes": "Please note our minimum order quantity for nitrile gloves (Lines 1 and 2) is 20 boxes per size, per order. Your quantities meet this threshold so no adjustment needed, but keep in mind for future blanket orders — splitting an order across sizes does not aggregate toward MOQ.\n\nKelp meal (Line 6) sourced from our Pacific Northwest supplier; MOQ of 10 bags applies and your quantity satisfies this. Note that this product is OMRI listed for organic operations — certificate available on request.\n\nTier pricing on Line 5 is firm only for the order quantity quoted. Adjustments to ordered quantity will be re-priced at the applicable tier.\n\nFreight quoted separately upon order confirmation.\n\nQuestions? Contact Sandra Aguilar, Account Manager — saguilar@meridian-supply.co — (602) 555-0142"
+}

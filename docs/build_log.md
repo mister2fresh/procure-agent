@@ -126,3 +126,29 @@ Things that worked on first run, worth noting because they could have failed:
 - `min_order_qty` stripped units (`"30 units"` → `"30"`).
 
 Two days of design work paid off in one session of clean runs. Loop is solid against the small corpus. Next: expand corpus to ~10-15 fixtures (tier pricing, multi-line, missing-field cases), wire the pytest eval harness with field-aware comparators, then translate to LangGraph.
+
+## 2026-05-03 — Day 1, evening (corpus expansion batch 1)
+
+User dropped 6 new fixtures covering tier pricing, multi-currency, MOQ-in-prose, SKU substitution, missing-required-fields, and stacked exceptions. Format expansion: `.csv`, `.docx`, `.md` alongside the original `.txt`.
+
+**`read_file` tool gained docx support.** Added `python-docx`. New `_read_docx` helper walks the body in document order — paragraphs as lines, tables as pipe-delimited rows. Dispatches on suffix in `read_file`; `.txt`/`.csv`/`.md` still pass through `read_text()` unchanged. Smoke-tested on both docx fixtures (Precision Bearings, NutriGrow); table rows render cleanly and document-order interleaving holds.
+
+**Schema bug fixed: 2dp price quantizer was lossy.** The `Price = Annotated[Decimal, AfterValidator(_to_2dp)]` validator added during the verbatim-extraction pass was wrong for high-precision quotes. Acme's fastener pricing is at 3 decimals (`$0.142`); `Decimal("0.142").quantize(Decimal("0.01"))` truncates to `0.14`, breaking line-total reconciliation against subtotals.
+
+Resolution: dropped the validator entirely. `unit_price` and `tier_prices[].unit_price` are now plain `Decimal`. Source precision survives end-to-end. The "compare 300 vs 300.00 as the same value" responsibility moves to the eval harness comparator (numeric Decimal equality), which is where it belongs anyway. All 9 existing + new goldens validate post-fix, so the change is non-breaking.
+
+Lesson worth keeping: **schema-layer normalization is brittle when the domain has wider precision than the canonical form assumes.** The prompt already commits the model to source-precision verbatim; the schema validator was overriding that — solving a real problem (golden-comparison stability) at the wrong layer. Comparators belong in the harness; the schema's job is structure, not display.
+
+**Goldens scaffolded for 5 of 6.** Acme deferred — it's a price list with no order quantity stated, and the schema requires non-null `quantity`. Three resolution paths possible (synthesize a fake quoted qty, add a `quote_type` discriminator, or ERROR-on-extract). User chose to keep the fixture and skip the golden until v1.x adds the schema branch — accepts that we lose one fixture's worth of eval signal in exchange for not inventing data.
+
+**Sidecar `.notes.md` per fixture** captures the downstream-eval rubric items the v1 schema can't carry: NCNR clauses, carton-rounding rules, substitution-acceptance routing, FX-estimate-is-reference-only, missing-freight completeness flags, faithfulness math reconciliations. These become eval targets once reconciliation/HITL/PO-generation nodes land in step 3 (LangGraph translation). Format converged on 5 sections: v1 extraction caveats, exception-flagged-when-warranted, faithfulness, completeness/HITL routing, inventory matching.
+
+**Design questions surfaced for later:**
+- TerraGreen line `GREENS-CC` ($2.85/lb, qty 200, no UoM column): golden derives `uom: "lb"` from the price modifier. Strict reading would emit `null` UoM and force HITL. Currently mild inference; need to decide whether the prompt should be tightened or this is acceptable extraction behavior.
+- TerraGreen line `WORMC-1CY` (UoM in SKU stem, `1CY` = 1 cubic yard): golden defaults to `"each"` since the schema requires non-null `uom`. Same class of problem — the canonical UoM set is too narrow for this domain.
+- Meridian line `LUBE-WD40-1G`: golden uses `uom: "gal"` and leaves "1 gallon" in description rather than splitting to `pack_size`. Different from the consistent pack-split applied elsewhere. The prompt's pack-split rule kicks in only when there's a separate pack form vs. UoM; here they collide.
+- The canonical UoM set (`{kg, lb, oz, gal, l, each, case}`) is forcing too many real-world UoMs (`BAG`, `PAIL`, `BALE`, `ROLL`, `BOX`, `PR`) to collapse to `each`. Fine for v1 but loses a lot of detail.
+
+No agent runs against the new fixtures yet — saved for next session. Goldens are aspirational targets per the prompt's strict reading; harness-driven divergence will surface real signal once step 2 wires up.
+
+Next: pull next batch of fixtures, then go wide on agent-run testing.

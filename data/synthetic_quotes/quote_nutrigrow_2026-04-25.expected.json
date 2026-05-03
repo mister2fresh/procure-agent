@@ -1,0 +1,91 @@
+{
+  "supplier_name": "NutriGrow Organics",
+  "supplier_ref": "NG-26-0418",
+  "customer_ref": null,
+  "rfq_ref": "NSM-RFQ-0420",
+  "issued_date": "2026-04-25",
+  "valid_through": "2026-05-25",
+  "line_items": [
+    {
+      "requested_sku": "KMEAL-50",
+      "supplier_sku": "KMEAL-44",
+      "description": "Kelp Meal, Norwegian (substituted — see notes)",
+      "pack_size": "44 lb bag",
+      "quantity": "30",
+      "uom": "each",
+      "unit_price": "62.50",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "FISH-EM-5G",
+      "supplier_sku": "FISH-EM-5G",
+      "description": "Fish Emulsion 5-1-1",
+      "pack_size": "5 gallon pail",
+      "quantity": "12",
+      "uom": "each",
+      "unit_price": "58.90",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "ROCK-PHOS-50",
+      "supplier_sku": "ROCK-PHOS-50",
+      "description": "Soft Rock Phosphate",
+      "pack_size": "50 lb bag",
+      "quantity": "40",
+      "uom": "each",
+      "unit_price": "24.75",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "GREENS-BUCKWHEAT",
+      "supplier_sku": "GREENS-BUCKWHEAT",
+      "description": "Buckwheat Cover Crop Seed",
+      "pack_size": "50 lb bag",
+      "quantity": "20",
+      "uom": "each",
+      "unit_price": "58.00",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "AZOMITE-44",
+      "supplier_sku": "AZOMITE-44",
+      "description": "Azomite Trace Minerals, micronized",
+      "pack_size": "44 lb bag",
+      "quantity": "16",
+      "uom": "each",
+      "unit_price": "36.20",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "NEEM-MEAL-50",
+      "supplier_sku": "NEEM-MEAL-50",
+      "description": "Neem Seed Meal, OMRI listed",
+      "pack_size": "50 lb bag",
+      "quantity": "8",
+      "uom": "each",
+      "unit_price": "48.50",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    }
+  ],
+  "payment_terms": "Net 30",
+  "shipping_terms": "FOB Origin, Eugene OR",
+  "raw_notes": "Thank you for your purchase request received April 19. I'm writing to provide pricing on the items requested and to flag a substitution that requires your acceptance before we can proceed.\n\nYour RFQ specified KMEAL-50 (Kelp Meal, Norwegian-sourced, 50 lb bag) at a quantity of 30 bags. Our Norwegian supplier has placed the 50-pound packaging on allocation through Q3 2026 due to an unusually weak harvest, and we cannot fulfill this SKU at the requested quantity within your stated lead time.\n\nWe are proposing substitution to KMEAL-44 (Kelp Meal, Norwegian-sourced, 44 lb bag) — same product, same source, smaller bag size. Per-pound pricing is held flat at $1.420/lb (unchanged from the 50 lb SKU's per-pound rate of $1.420/lb based on the previous quote of $71.00/bag). At the proposed bag size and quantity:\n\n• Original request: 30 bags × 50 lb = 1,500 lb at $71.00/bag = $2,130.00\n• Substituted offer: 30 bags × 44 lb = 1,320 lb at $62.50/bag = $1,875.00\n\nNote that this substitution delivers 180 fewer pounds of product than originally requested. If maintaining the 1,500 lb total is important, we suggest increasing the quantity to 35 bags (1,540 lb at $2,187.50) or holding for 50-lb resupply (estimated September 2026). Please indicate your preference on the PO acknowledgment.\n\nSubstituted line is highlighted in the table below. Pricing on lines 2 through 6 is unchanged from your RFQ scope and reflects current published list.\n\nFreight (LTL to Reno NV): Quoted at order confirmation\n\nPlease indicate one of the following on your purchase order:\n☐  Accept substitution of KMEAL-44 at 30 bags per terms above (1,320 lb total)\n☐  Accept substitution of KMEAL-44 at 35 bags to maintain ~1,500 lb (1,540 lb total)\n☐  Hold KMEAL-50 portion of order until Q3 2026 resupply (other lines proceed as quoted)\n☐  Cancel KMEAL line entirely (other lines proceed as quoted)\n\nIf we don't hear back by May 2, we'll assume the order is on hold pending your decision and will not begin fulfillment on the other lines, in case you wish to consolidate freight.\n\nSorry for the inconvenience. Norwegian kelp has been tight all season and the 44-pound packaging is what we're able to consistently move right now. Happy to discuss alternatives if neither option above works.\n\nJanet Whitford\nSales Manager\nNutriGrow Organics\n(541) 555-0149 ext. 7\njwhitford@nutrigrow-organics.com"
+}
