@@ -2,6 +2,7 @@
   "supplier_name": "Rootwise Biologicals",
   "supplier_ref": "RW-2026-0419",
   "customer_ref": null,
+  "rfq_ref": "RFQ-1143",
   "issued_date": "2026-04-19",
   "valid_through": null,
   "line_items": [

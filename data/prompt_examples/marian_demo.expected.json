@@ -2,6 +2,7 @@
   "supplier_name": "Marian Ag",
   "supplier_ref": "Q-2026-0431",
   "customer_ref": "2F-104",
+  "rfq_ref": "RFQ-8842",
   "issued_date": "2026-04-15",
   "valid_through": null,
   "line_items": [

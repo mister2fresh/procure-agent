@@ -70,8 +70,13 @@ class Quote(BaseModel):
         None,
         description="Persistent customer identifier — the supplier's stable ID for this buyer "
         "in their system (Customer #, Account #, customer code, Bill-To ID). Same value across "
-        "every quote that supplier sends. Distinct from per-transaction refs (RFQ #, PO #) "
-        "which are not captured at this stage.",
+        "every quote that supplier sends. Distinct from `rfq_ref`, which is per-transaction.",
+    )
+    rfq_ref: str | None = Field(
+        None,
+        description="Buyer-side transaction reference this quote responds to — the RFQ # "
+        "(or 'Buyer Ref:', 'Your Ref:') the buyer issued and the supplier echoed back. "
+        "Per-transaction; changes every quote. Distinct from `customer_ref`.",
     )
     issued_date: date | None = None
     valid_through: date | None = None
