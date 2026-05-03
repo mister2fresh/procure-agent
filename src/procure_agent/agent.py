@@ -17,6 +17,8 @@ from pathlib import Path
 
 from anthropic import Anthropic
 from anthropic.types import Message
+from docx import Document
+from docx.oxml.ns import qn
 from dotenv import load_dotenv
 
 from procure_agent.prompts import SYSTEM
@@ -35,7 +37,8 @@ READ_FILE_TOOL = {
     "name": "read_file",
     "description": (
         "Read the contents of a synthetic supplier quote fixture by filename. "
-        "Returns the raw text of the quote document."
+        "Handles .txt, .csv, .md (returned as-is) and .docx (rendered to text "
+        "with paragraphs as lines and tables as pipe-delimited rows)."
     ),
     "input_schema": {
         "type": "object",
@@ -53,15 +56,43 @@ READ_FILE_TOOL = {
 }
 
 
+def _read_docx(path: Path) -> str:
+    """Render a .docx body as plain text in document order.
+
+    Paragraphs become lines. Tables render as pipe-delimited rows so column
+    structure survives. Document order between paragraphs and tables is preserved.
+
+    Args:
+        path: Resolved path to a .docx file.
+
+    Returns:
+        The document body as a single newline-joined string.
+    """
+    doc = Document(path)
+    blocks: list[str] = []
+    for child in doc.element.body.iterchildren():
+        if child.tag == qn("w:p"):
+            text = "".join(t.text or "" for t in child.iter(qn("w:t")))
+            if text.strip():
+                blocks.append(text)
+        elif child.tag == qn("w:tbl"):
+            table = next(t for t in doc.tables if t._element is child)
+            blocks.extend(" | ".join(c.text for c in row.cells) for row in table.rows)
+    return "\n".join(blocks)
+
+
 def read_file(filename: str) -> str:
     """Read a fixture from the synthetic-quotes directory.
+
+    Dispatches by suffix: ``.docx`` is rendered to text via ``python-docx``;
+    everything else is returned as raw text.
 
     Args:
         filename: Bare filename within `data/synthetic_quotes/`. Path traversal
             (anything that resolves outside the directory) is rejected.
 
     Returns:
-        The file's text contents.
+        The file's contents as text.
 
     Raises:
         ValueError: If the filename escapes the quotes directory or doesn't exist.
@@ -71,6 +102,8 @@ def read_file(filename: str) -> str:
         raise ValueError(f"path escapes quotes directory: {filename}")
     if not target.is_file():
         raise ValueError(f"fixture not found: {filename}")
+    if target.suffix == ".docx":
+        return _read_docx(target)
     return target.read_text()
 
 

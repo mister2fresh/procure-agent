@@ -15,6 +15,7 @@ dependencies = [
     "psycopg[binary]>=3.2.0",
     "pydantic>=2.9.0",
     "python-dotenv>=1.0.1",
+    "python-docx>=1.2.0",
 ]
 
 [dependency-groups]
