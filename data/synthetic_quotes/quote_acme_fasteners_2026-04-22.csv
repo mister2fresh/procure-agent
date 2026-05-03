@@ -1,0 +1,36 @@
+Acme Industrial Fasteners,,,,,,
+1247 Foundry Road | Cleveland OH 44109 | sales@acme-fasteners.com,,,,,,
+,,,,,,
+Quote Number:,Q-2026-04881,,,,,
+Quote Date:,2026-04-22,,,,,
+Valid Until:,2026-05-22,,,,,
+Customer:,Northstar Manufacturing,,,,,
+Buyer Reference:,RFQ-NSM-0418,,,,,
+Payment Terms:,Net 30,,,,,
+FOB:,Origin,,,,,
+Lead Time:,5-7 business days,,,,,
+,,,,,,
+Line,SKU,Description,Tier Min Qty,Tier Max Qty,Unit Price USD,UoM
+1,HCS-3815-Z,"Hex Cap Screw, 3/8""-16 x 1.5"", Grade 5, Zinc Plated",100,499,0.142,EA
+1,HCS-3815-Z,"Hex Cap Screw, 3/8""-16 x 1.5"", Grade 5, Zinc Plated",500,1999,0.118,EA
+1,HCS-3815-Z,"Hex Cap Screw, 3/8""-16 x 1.5"", Grade 5, Zinc Plated",2000,9999,0.094,EA
+1,HCS-3815-Z,"Hex Cap Screw, 3/8""-16 x 1.5"", Grade 5, Zinc Plated",10000,,0.081,EA
+2,FNW-3816-Z,"Flat Washer, 3/8"" ID, Zinc Plated",500,2499,0.038,EA
+2,FNW-3816-Z,"Flat Washer, 3/8"" ID, Zinc Plated",2500,9999,0.029,EA
+2,FNW-3816-Z,"Flat Washer, 3/8"" ID, Zinc Plated",10000,,0.022,EA
+3,LWS-3816-Z,"Split Lock Washer, 3/8"", Zinc Plated",500,2499,0.044,EA
+3,LWS-3816-Z,"Split Lock Washer, 3/8"", Zinc Plated",2500,9999,0.034,EA
+3,LWS-3816-Z,"Split Lock Washer, 3/8"", Zinc Plated",10000,,0.026,EA
+4,HXN-3816-Z,"Hex Nut, 3/8""-16, Grade 2, Zinc Plated",500,2499,0.071,EA
+4,HXN-3816-Z,"Hex Nut, 3/8""-16, Grade 2, Zinc Plated",2500,9999,0.054,EA
+4,HXN-3816-Z,"Hex Nut, 3/8""-16, Grade 2, Zinc Plated",10000,,0.041,EA
+5,SHC-1420-SS,"Socket Head Cap Screw, 1/4""-20 x 1"", 18-8 Stainless",50,249,0.487,EA
+5,SHC-1420-SS,"Socket Head Cap Screw, 1/4""-20 x 1"", 18-8 Stainless",250,999,0.412,EA
+5,SHC-1420-SS,"Socket Head Cap Screw, 1/4""-20 x 1"", 18-8 Stainless",1000,,0.349,EA
+6,CRW-10-32,"Carriage Bolt, #10-32 x 0.75"", Plain Steel",250,1499,0.089,EA
+6,CRW-10-32,"Carriage Bolt, #10-32 x 0.75"", Plain Steel",1500,,0.067,EA
+,,,,,,
+Notes:,,,,,,
+,Tier pricing applies to single-line quantities. Mixed-SKU quantity discounts not available on this quote.,,,,,
+,Add 8.0% sales tax for Ohio destinations.,,,,,
+,Price valid through 2026-05-22 only. Steel surcharges may apply on orders placed after.,,,,,
