@@ -9,7 +9,7 @@
     {
       "requested_sku": "AL101",
       "supplier_sku": "AL101",
-      "description": "Aloe Vera Extract, food grade",
+      "description": "food-grade aloe vera extract",
       "pack_size": null,
       "quantity": "50",
       "uom": "kg",
@@ -21,6 +21,6 @@
     }
   ],
   "payment_terms": "Net 30",
-  "shipping_terms": "FOB Mesa facility",
-  "raw_notes": null
+  "shipping_terms": "FOB our facility in Mesa",
+  "raw_notes": "Let me know if you want me to lock it in and I'll send the PO confirmation.\n\nSarah Chen\nAloe Corp.\n(480) 555-0114"
 }

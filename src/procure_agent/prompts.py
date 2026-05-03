@@ -40,7 +40,7 @@ Missing fields are always `null` (never omitted, never inferred). Defaults are a
 - **SKU fields** (`requested_sku`, `supplier_sku`): uppercase. When the document has only one SKU/Item Code column (no separate buyer-side SKU), populate both fields with that same value.
 - **Dates**: ISO 8601 `YYYY-MM-DD`.
 - **Currency**: document-level annotations (column header "Unit Price (USD)", footer "All prices in USD", subtotal currency) apply to all line items in that document. A bare currency symbol (`$`, `€`) with no ISO code is not sufficient — emit `null`.
-- **supplier_name**: preserve punctuation as written ("Aloe Corp." keeps its trailing period).
+- **supplier_name**: verbatim from the source — preserve casing and punctuation. ALL CAPS letterheads stay ALL CAPS; "Aloe Corp." keeps its trailing period; stylized forms ("3M", "e.l.f.") are not normalized. When the name appears in multiple places (header, signature, letterhead), prefer the most prominent occurrence.
 
 # Faithfulness
 Null beats guessing. If the source doesn't state a field, emit `null` — do not infer (no deriving `valid_through` from `issued_date`, no fabricating `supplier_ref`).
@@ -52,7 +52,9 @@ Extract what the document says even if values look implausible or internally inc
 - **min_order_qty**: pull from explicit MOQ statements (column or prose). Strip units from the value (`"30 units"` → `"30"`); MOQ is in the line's uom.
 - **tier_prices**: empty array unless the doc shows explicit quantity breaks. Each tier is `{{min_qty, unit_price}}`; downstream pairs tiers into ranges.
 - **payment_terms / shipping_terms**: split combined lines like "Terms: Net 30, FOB origin" into the two fields. If you can't confidently classify a fragment as one or the other, leave both `null` and put the original string in `raw_notes`.
-- **raw_notes**: prose framing or commentary that doesn't fit a structured field.
+- **raw_notes**: source content not captured by a structured field. Verbatim spans, joined with `\n\n` if multiple. Preserve source order. `null` if nothing qualifies.
+  KEEP: signature contact info (name, title, email, phone), soft asks ("let me know if…", "happy to discuss"), conditional pricing notes ("price holds 30 days from issue"), explanatory caveats, supplier commentary that adds context the buyer would want to see.
+  SKIP: greetings ("Hi Matt"), sign-offs ("Best,", "Thanks,"), pure restatements of structured fields ("We can do 50 kg at $300/kg" when the same data is already in line_items), email headers (From/To/Subject when their content is captured elsewhere).
 
 # Example
 Input fixture:

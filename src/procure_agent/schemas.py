@@ -9,15 +9,23 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
+
+
+def _to_2dp(value: Decimal) -> Decimal:
+    return value.quantize(Decimal("0.01"))
+
+
+Price = Annotated[Decimal, AfterValidator(_to_2dp)]
 
 
 class TierPrice(BaseModel):
     """A quantity break in tier pricing."""
 
     min_qty: Decimal = Field(..., description="Minimum quantity to qualify for this tier.")
-    unit_price: Decimal
+    unit_price: Price
 
 
 class QuoteLineItem(BaseModel):
@@ -46,7 +54,7 @@ class QuoteLineItem(BaseModel):
         ...,
         description="Canonical UoM, lowercase ('kg', 'lb', 'oz', 'gal', 'l', 'each', 'case').",
     )
-    unit_price: Decimal
+    unit_price: Price
     currency: str | None = Field(
         None,
         description="ISO currency code as stated by the document (e.g. 'USD'). None when only a "
