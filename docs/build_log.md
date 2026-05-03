@@ -203,3 +203,13 @@ First end-to-end agent runs on the batch-2 fixtures. Started 0/6 byte-matching t
 **Sequence lesson worth keeping:** running the agent before harness wiring is high-signal-per-API-call. ~12 calls (two passes of 6 fixtures) surfaced four prompt rules + a golden rewrite + the next-session-blocker (signature decision). Same drift would have been masked by a harness-only run reporting per-field hit rates, because half the issues were prompt/golden contradictions where neither side was clearly correct.
 
 **Next:** settle signature keep/skip; either flip the prompt or rewrite the four goldens. Then sweep batch 1 (remaining ~6 fixtures) for the same drift classes. Harness wiring after.
+
+## 2026-05-03 — Day 1, late evening (signature keep/skip settled)
+
+Decision: **KEEP signatures verbatim in `raw_notes`** (current prompt rule stands). No prompt edit, no golden rewrites. Goldens 07/09/11/12 will get signature blocks reinstated when their next pass runs — defer that mechanical fix to the batch-1 sweep session so it lands as one batch of golden updates rather than scattered.
+
+Why not flip the prompt: signatures are genuinely structured supplier-contact data (name, title, email, phone) — exactly the schema supplier onboarding (handoff §week 3) needs. Designing a `Contact` model now expands extraction scope mid-build for a workflow that's two weeks out, on thin signal (signature shape varies a lot — "Thanks, Bob" through full block). Raw_notes loses no information; the structured lift is a one-prompt-change away once onboarding lands and we've seen 20+ signature variants.
+
+Trigger for revisit: handoff doc §week 3 (Supplier onboarding) annotated with "extract signatures into structured `Contact` here" so the next-workflow-startup pass picks it up automatically.
+
+Header admin metadata (`Salesperson:`, `Freight: TBD`) is the same shape of question but separate — those aren't signature data, they're document-header attribution. Will fall out of the batch-1 sweep when fresh fixtures with similar headers either get goldens that include them or push back on the prompt rule. No standalone decision needed yet.
