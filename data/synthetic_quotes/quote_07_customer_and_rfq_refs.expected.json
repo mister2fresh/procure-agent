@@ -1,0 +1,65 @@
+{
+  "supplier_name": "PACIFIC AGRI-SUPPLY CO.",
+  "supplier_ref": "PAS-Q-25774",
+  "customer_ref": "2F-104",
+  "rfq_ref": "RFQ-8842",
+  "issued_date": "2026-04-22",
+  "valid_through": "2026-05-22",
+  "line_items": [
+    {
+      "requested_sku": "PM-C-2.2",
+      "supplier_sku": "PM-C-2.2",
+      "description": "Sphagnum peat moss, compressed",
+      "pack_size": "2.2 cu ft bale",
+      "quantity": "120",
+      "uom": "each",
+      "unit_price": "14.85",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "KM-50",
+      "supplier_sku": "KM-50",
+      "description": "Kelp meal, ascophyllum nodosum",
+      "pack_size": "50 lb bag",
+      "quantity": "45",
+      "uom": "each",
+      "unit_price": "52.40",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "FBM-50",
+      "supplier_sku": "FBM-50",
+      "description": "Feather meal 13-0-0",
+      "pack_size": "50 lb bag",
+      "quantity": "30",
+      "uom": "each",
+      "unit_price": "38.90",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "BM-50",
+      "supplier_sku": "BM-50",
+      "description": "Bone meal 3-15-0",
+      "pack_size": "50 lb bag",
+      "quantity": "60",
+      "uom": "each",
+      "unit_price": "34.25",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    }
+  ],
+  "payment_terms": "Net 30",
+  "shipping_terms": "FOB Origin (Salem, OR)",
+  "raw_notes": "Standard pallet quantities apply. OMRI-listed certifications available on request.\n\nReference Customer # 2F-104 and Buyer Ref RFQ-8842 on your PO for proper credit."
+}

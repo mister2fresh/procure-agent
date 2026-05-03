@@ -1,0 +1,52 @@
+{
+  "supplier_name": "Northstar Packaging",
+  "supplier_ref": "NS-26-1188",
+  "customer_ref": "NS-1142",
+  "rfq_ref": "0418-DRUMS",
+  "issued_date": "2026-04-21",
+  "valid_through": "2026-05-21",
+  "line_items": [
+    {
+      "requested_sku": null,
+      "supplier_sku": null,
+      "description": "55-gal poly drum liner, 4 mil, natural",
+      "pack_size": null,
+      "quantity": "500",
+      "uom": "each",
+      "unit_price": "1.84",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": null,
+      "supplier_sku": null,
+      "description": "30-gal poly drum liner, 4 mil, natural",
+      "pack_size": null,
+      "quantity": "250",
+      "uom": "each",
+      "unit_price": "1.22",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": null,
+      "supplier_sku": null,
+      "description": "Drum heat seal closures, kraft",
+      "pack_size": null,
+      "quantity": "750",
+      "uom": "each",
+      "unit_price": "0.34",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    }
+  ],
+  "payment_terms": "Net 30 on approved credit",
+  "shipping_terms": "ex-warehouse Tacoma; freight prepay & add",
+  "raw_notes": "Pricing held through May 21, 2026 — supplier can hold longer if requested before expiration.\n\nEarliest ship date if PO received this week: 05/04/2026 ex-warehouse Tacoma. If ordered after 28-Apr-2026 the ship slips to the week of May 11.\n\nStandard pallet config: 40 cases/pallet on the liners."
+}

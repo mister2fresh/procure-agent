@@ -1,0 +1,58 @@
+{
+  "supplier_name": "Continental Ingredients LLC",
+  "supplier_ref": "CI-Q-7740",
+  "customer_ref": "88123",
+  "rfq_ref": "PO-prep-spring",
+  "issued_date": "2026-04-25",
+  "valid_through": "2026-05-09",
+  "line_items": [
+    {
+      "requested_sku": "ALF-PEL-50",
+      "supplier_sku": "ALF-PEL-50",
+      "description": "Alfalfa meal pelletized",
+      "pack_size": "50 lb bag",
+      "quantity": "160",
+      "uom": "each",
+      "unit_price": "16.20",
+      "currency": null,
+      "tier_prices": [
+        {"min_qty": "40", "unit_price": "18.75"},
+        {"min_qty": "160", "unit_price": "16.20"}
+      ],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "SOY-MEAL-50",
+      "supplier_sku": "SOY-MEAL-50",
+      "description": "Soybean meal 7-2-1",
+      "pack_size": "50 lb bag",
+      "quantity": "120",
+      "uom": "each",
+      "unit_price": "21.85",
+      "currency": null,
+      "tier_prices": [
+        {"min_qty": "30", "unit_price": "24.40"},
+        {"min_qty": "120", "unit_price": "21.85"}
+      ],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "COTTONSEED-50",
+      "supplier_sku": "COTTONSEED-50",
+      "description": "Cottonseed meal 6-2-1",
+      "pack_size": "50 lb bag",
+      "quantity": "20",
+      "uom": "each",
+      "unit_price": "32.10",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    }
+  ],
+  "payment_terms": "Net 30",
+  "shipping_terms": "FOB Origin (Stockton CA)",
+  "raw_notes": null
+}

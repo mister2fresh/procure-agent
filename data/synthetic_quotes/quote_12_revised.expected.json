@@ -1,0 +1,52 @@
+{
+  "supplier_name": "Riverway Manufacturing",
+  "supplier_ref": "RW-2026-0419-R2",
+  "customer_ref": "RW-CUST-0312",
+  "rfq_ref": "RFQ-spring-totes",
+  "issued_date": "2026-04-30",
+  "valid_through": "2026-05-30",
+  "line_items": [
+    {
+      "requested_sku": null,
+      "supplier_sku": null,
+      "description": "Poly tote, 275-gal IBC, food grade, new",
+      "pack_size": null,
+      "quantity": "12",
+      "uom": "each",
+      "unit_price": "385.00",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": "Lead: 3 weeks"
+    },
+    {
+      "requested_sku": null,
+      "supplier_sku": null,
+      "description": "Poly tote, 330-gal IBC, food grade, new",
+      "pack_size": null,
+      "quantity": "12",
+      "uom": "each",
+      "unit_price": "445.00",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": "Lead: 3 weeks"
+    },
+    {
+      "requested_sku": null,
+      "supplier_sku": null,
+      "description": "Drum pump, polypropylene, 55-gal, manual rotary",
+      "pack_size": null,
+      "quantity": "4",
+      "uom": "each",
+      "unit_price": "128.00",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": "Lead: in stock; added in revision"
+    }
+  ],
+  "payment_terms": "Net 30",
+  "shipping_terms": "FOB Origin",
+  "raw_notes": "Revised quotation — supersedes RW-2026-0419 dated 2026-04-19.\n\nChanges from original RW-2026-0419:\n- Item 2 (330-gal IBC) qty increased from 8 to 12 per 4/29 email\n- Item 3 (drum pump) added at buyer request\n- Pricing on items 1 and 2 unchanged from prior version\n- Lead times unchanged from prior quote\n\nPlease reference RW-2026-0419-R2 on PO. Original quote RW-2026-0419 is void as of this email."
+}

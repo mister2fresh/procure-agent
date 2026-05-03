@@ -152,3 +152,24 @@ Lesson worth keeping: **schema-layer normalization is brittle when the domain ha
 No agent runs against the new fixtures yet — saved for next session. Goldens are aspirational targets per the prompt's strict reading; harness-driven divergence will surface real signal once step 2 wires up.
 
 Next: pull next batch of fixtures, then go wide on agent-run testing.
+
+## 2026-05-03 — Day 1, late evening (corpus expansion batch 2 goldens)
+
+User dropped 6 more fixtures targeted at extraction edge cases — refs, pack-size variations, date formats, multi-row qty breaks, lead-time prose, and a revised-quote ref trap. Same session wrote `.expected.json` for all 6. No `.notes.md` sidecars this batch — fixtures are narrower and the wrinkles are encoded in the goldens directly.
+
+**Convention reinforcement (batch 1 → batch 2 carry-over):**
+- Non-canonical UoM tokens (`bag`, `bale`, `pail`, `drum`, `tote`) → `uom: "each"` (or `"case"` when literal); pack form preserved in `pack_size`.
+- Bare `$` symbol → `currency: null`; explicit ISO code → that code.
+- `customer_ref` (persistent customer ID) and `rfq_ref` (per-transaction) stay separate even when both restate in a footer reminder line.
+
+**Pack-size placement rule pinned:** UoM-column word (`bag`/`bale`/`drum`) goes into `pack_size` *only when not already in description*. Pacific amendments' `PEAT-BALE-3.8` left "bale" in description; fixture 7's `PM-C-2.2` pulled "bale" into `pack_size: "2.2 cu ft bale"` because the description didn't carry it. User validated as provisional. Saved as feedback memory.
+
+**Judgment calls, batch-2-specific:**
+- Fixture 9 (Northstar): slash-format date `05/04/2026` only appears in prose, kept verbatim in `raw_notes`. Structured `issued_date` / `valid_through` come from unambiguous `dd-MMM-yyyy` and `Month DD, YYYY` formats elsewhere in the email. Locale ambiguity not pinned by the golden — it's a downstream-normalization concern.
+- Fixture 10 (Continental Ingredients qty break): same SKU appearing in two rows at different qty/price collapses to one line item with `tier_prices` populated. `quantity` = larger tier qty, `unit_price` = price at that tier. Cottonseed (single-row) gets empty `tier_prices`.
+- Fixture 12 (Riverway revised quote): `supplier_ref` = live ref `"RW-2026-0419-R2"` (not the prominent old ref). Item 2 qty = 12; the parenthetical "(was qty 8 in original)" did not bleed into the line item. Supersession context lives in `raw_notes`.
+- Fixture 11 (Harbor): per-line lead-time status went into `notes` per item (`"in stock — can ship today"`, `"8-10 week lead time — must commit by 5/15"`, etc.). `valid_through` derived from "Valid: 30 days from quote date" → 2026-05-29.
+
+**Caught one near-miss:** initial fixture 7 draft was sanity-checked by user before write — flagged me to look at lines 55-56. Nothing wrong there in the end (BM-50 unit_price 34.25 verbatim from source, currency null per bare-$ convention). Worth the pause anyway; verbatim self-check beats trusting parallel-write output.
+
+No agent runs yet against batch 2 either. Next: agent test pass across full corpus (batches 1 + 2), then pytest harness.
