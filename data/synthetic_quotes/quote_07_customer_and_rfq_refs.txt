@@ -1,0 +1,35 @@
+PACIFIC AGRI-SUPPLY CO.
+2847 Industrial Blvd, Salem, OR 97301
+sales@pacificagri.example | (503) 555-0142
+
+                              QUOTATION
+
+Quote #:        PAS-Q-25774
+Date:           April 22, 2026
+Valid Until:    May 22, 2026
+Customer #:     2F-104
+Buyer Ref:      RFQ-8842
+Salesperson:    K. Tomlinson
+Payment Terms:  Net 30
+FOB:            Origin (Salem, OR)
+
+Bill To:
+[buyer info elided in extraction]
+
+LINE ITEMS
+==========
+
+Item   SKU         Description                                Qty    UoM    Unit Price    Ext. Price
+1      PM-C-2.2    Sphagnum peat moss, 2.2 cu ft compressed   120    bale   $14.85        $1,782.00
+2      KM-50       Kelp meal, ascophyllum nodosum, 50 lb       45    bag    $52.40        $2,358.00
+3      FBM-50      Feather meal 13-0-0, 50 lb                  30    bag    $38.90        $1,167.00
+4      BM-50       Bone meal 3-15-0, 50 lb                     60    bag    $34.25        $2,055.00
+
+                                                              Subtotal:     $7,362.00
+                                                              Freight:      TBD
+                                                              Total:        $7,362.00 + freight
+
+Notes: Standard pallet quantities apply. OMRI-listed certifications available on request.
+Reference Customer # 2F-104 and Buyer Ref RFQ-8842 on your PO for proper credit.
+
+Thank you for your business.

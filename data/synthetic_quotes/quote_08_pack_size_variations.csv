@@ -1,0 +1,16 @@
+# Supplier: Cascade Bio Solutions
+# Quote #: CBS-2026-0428-A
+# Date: 2026-04-28
+# Customer #: CB-449
+# Buyer Ref: 0427-amendments-RFQ
+# Valid Until: 2026-05-28
+# Terms: Net 15, FOB Destination
+sku,description,pack_size,qty,unit_price,uom
+NEEM-1G,Neem oil cold-pressed cosmetic grade,1 gal,12,84.50,each
+MYCO-CASE,Mycorrhizae inoculant granular,case of 12,4,168.00,case
+HUMIC-DRUM,Humic acid liquid concentrate,drum (55 gal),2,485.00,each
+WC-BAG,Worm castings premium screened,bag,80,12.75,each
+ROCK-50,Rock phosphate soft 0-3-0,50 lb,40,28.40,bag
+KELP-1LB,Kelp powder fine ground,1 lb,200,6.85,each
+GYP-BULK,Gypsum agricultural pelletized,1 ton tote,3,340.00,each
+COMP-TEA-5G,Compost tea concentrate,5 gal pail,8,72.00,each

@@ -1,0 +1,13 @@
+# Supplier: Continental Ingredients LLC
+# Quote #: CI-Q-7740
+# Date: 2026-04-25
+# Customer #: 88123
+# Buyer Ref: PO-prep-spring
+# Valid Until: 2026-05-09
+# Terms: Net 30, FOB Origin (Stockton CA)
+sku,description,qty,uom,unit_price
+ALF-PEL-50,Alfalfa meal pelletized 50 lb,40,bag,18.75
+ALF-PEL-50,Alfalfa meal pelletized 50 lb,160,bag,16.20
+SOY-MEAL-50,Soybean meal 7-2-1 50 lb,30,bag,24.40
+SOY-MEAL-50,Soybean meal 7-2-1 50 lb,120,bag,21.85
+COTTONSEED-50,Cottonseed meal 6-2-1 50 lb,20,bag,32.10
