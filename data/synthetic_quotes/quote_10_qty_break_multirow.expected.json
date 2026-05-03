@@ -11,14 +11,37 @@
       "supplier_sku": "ALF-PEL-50",
       "description": "Alfalfa meal pelletized",
       "pack_size": "50 lb bag",
+      "quantity": "40",
+      "uom": "each",
+      "unit_price": "18.75",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "ALF-PEL-50",
+      "supplier_sku": "ALF-PEL-50",
+      "description": "Alfalfa meal pelletized",
+      "pack_size": "50 lb bag",
       "quantity": "160",
       "uom": "each",
       "unit_price": "16.20",
       "currency": null,
-      "tier_prices": [
-        {"min_qty": "40", "unit_price": "18.75"},
-        {"min_qty": "160", "unit_price": "16.20"}
-      ],
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "SOY-MEAL-50",
+      "supplier_sku": "SOY-MEAL-50",
+      "description": "Soybean meal 7-2-1",
+      "pack_size": "50 lb bag",
+      "quantity": "30",
+      "uom": "each",
+      "unit_price": "24.40",
+      "currency": null,
+      "tier_prices": [],
       "min_order_qty": null,
       "notes": null
     },
@@ -31,10 +54,7 @@
       "uom": "each",
       "unit_price": "21.85",
       "currency": null,
-      "tier_prices": [
-        {"min_qty": "30", "unit_price": "24.40"},
-        {"min_qty": "120", "unit_price": "21.85"}
-      ],
+      "tier_prices": [],
       "min_order_qty": null,
       "notes": null
     },

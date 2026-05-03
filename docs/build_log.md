@@ -173,3 +173,33 @@ User dropped 6 more fixtures targeted at extraction edge cases — refs, pack-si
 **Caught one near-miss:** initial fixture 7 draft was sanity-checked by user before write — flagged me to look at lines 55-56. Nothing wrong there in the end (BM-50 unit_price 34.25 verbatim from source, currency null per bare-$ convention). Worth the pause anyway; verbatim self-check beats trusting parallel-write output.
 
 No agent runs yet against batch 2 either. Next: agent test pass across full corpus (batches 1 + 2), then pytest harness.
+
+## 2026-05-03 — Day 1, late evening (first agent pass on batch 2 corpus)
+
+First end-to-end agent runs on the batch-2 fixtures. Started 0/6 byte-matching the goldens; ended with 1 clean match (fixture 10) and the rest narrowed to a single class of remaining drift (signature stripping). Four prompt rules added en route.
+
+**Drift buckets surfaced on the first pass:**
+- **Schema/shape misses.** Fixture 10 (qty-break multirow) collapsed three CSV rows into three line items with the lowest tier as headline and one tier hoisted into `tier_prices`. Fixture 11 emitted `valid_through: null` despite source saying "Valid: 30 days from quote date".
+- **Convention drift.** `currency: "USD"` over-inferred where source had only `$`; `pack_size` dropped UoM-column nouns (`"50 lb"` instead of `"50 lb bag"`); `uom: "case"` for a `bag` UoM column where the canonical set has no entry.
+- **Prose hygiene.** raw_notes kept signatures and admin metadata (`Salesperson: K. Tomlinson`); `\n\n` separator compliance loose; `[ADDED]` verbatim vs golden's paraphrase.
+- **Edge cases.** Pack info bleeding into description; parenthetical pack reordering (`"drum (55 gal)"` vs golden's `"55 gal drum"`).
+
+**Four conventions decided this session and encoded in the prompt:**
+
+1. **valid_through derivation reversed.** Old prompt rule: never derive from issued_date. New rule: derive when source states explicit math (`"valid 30 days from quote date"`, `"expires 2 weeks from issue"`); strict-null only when source is silent or vague (`TBD`/`upon request`). Triggered by fixture 11 where the golden encoded the derived date and the prompt forbade it — golden was right, prompt was wrong.
+2. **Multi-row same-SKU is not a tier table.** Original golden 10 collapsed same-SKU rows into one line item with `tier_prices` populated and the top-tier qty as headline. Considered summing-as-headline (user's first instinct) — rejected because differing prices on same-SKU rows is the signature of supplier tier offers, not buyer split-lot orders, and summing invents a buyer commitment that isn't in the source. Settled rule: each CSV/table row is its own `QuoteLineItem`; `tier_prices` only populates when a single row carries an inline tier-break statement. Faithful row-by-row extraction; downstream decides duplicates. Golden 10 rewritten from 3 line items to 5.
+3. **pack_size UoM-column rule moved from memory into the prompt.** When a CSV/table has a separate UoM column with a packaging noun (`bag`, `bale`, `pail`, `drum`, `tote`), fold it into `pack_size` only if not already in the description. Rule was previously only in memory (batch 2 review); model didn't have it, so output drifted across fixtures 07, 08, 10. Same edit also tightened the `uom` rule to enumerate the packaging nouns that route to `pack_size + uom: each`, since "what's a canonical UoM" was implicit.
+4. **Currency: do not default to USD.** Existing rule said bare `$` is insufficient, but the model still defaulted to USD on fixture 07. Tightened with explicit "do not default to USD even if the supplier appears to be US-based."
+
+**Re-run results:** fixture 10 byte-clean (was 13 diffs). Fixtures 07/08/09/11 down to 1-2 diffs each, almost entirely raw_notes signature retention. Fixture 12 still drifts on `[ADDED]` verbatim and revision-prose paraphrase.
+
+**Single biggest source of remaining drift: signature keep/skip contradiction.** Current `raw_notes` KEEP rule says signature contact info (name, title, email, phone) belongs in raw_notes. All four affected goldens (07, 09, 11, 12) strip them. Either the rule flips (SKIP signatures) or the goldens get rewritten — same flavor of issue applies to header admin metadata (`Salesperson:`, `Freight: TBD`). Deferred for next session.
+
+**Other minor drift left on the table:**
+- Fixture 08: `pack_size: "drum (55 gal)"` (verbatim from CSV column) vs golden's `"55 gal drum"` (reordered). Prompt says "as written"; golden is normalized. Worth flipping one direction next pass.
+- Fixture 09: `shipping_terms` over-split — agent put `ex-warehouse Tacoma` in raw_notes alone, golden combined as `"ex-warehouse Tacoma; freight prepay & add"`.
+- Fixture 12: source-prose normalization (`**` markdown stripping, `your`→`buyer`, `[ADDED]`→`added in revision`) — agent preserves verbatim per existing rule.
+
+**Sequence lesson worth keeping:** running the agent before harness wiring is high-signal-per-API-call. ~12 calls (two passes of 6 fixtures) surfaced four prompt rules + a golden rewrite + the next-session-blocker (signature decision). Same drift would have been masked by a harness-only run reporting per-field hit rates, because half the issues were prompt/golden contradictions where neither side was clearly correct.
+
+**Next:** settle signature keep/skip; either flip the prompt or rewrite the four goldens. Then sweep batch 1 (remaining ~6 fixtures) for the same drift classes. Harness wiring after.
