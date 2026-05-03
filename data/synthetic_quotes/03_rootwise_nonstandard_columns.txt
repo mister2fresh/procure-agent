@@ -1,0 +1,14 @@
+ROOTWISE BIOLOGICALS
+Quote #RW-2026-0419
+Issued: 2026-04-19
+
+To: 2Fresh Ingredients
+Buyer Reference: RFQ-1143
+
+Item Code | Description       | Pack | Order Qty | Price Each | MOQ
+----------|-------------------|------|-----------|------------|----------
+RMC101    | Microbe Complete  | 4 oz | 30        | $15.00     | 30 units
+
+Subtotal: $450.00 USD
+Payment Terms: Net 30
+Shipping: FOB Portland, OR

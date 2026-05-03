@@ -1,0 +1,14 @@
+ALOE CORP. — QUOTE
+Quote Ref: AC-2026-0421
+Date: 2026-04-21
+Valid Through: 2026-05-21
+
+Customer: 2Fresh Ingredients
+Buyer Ref: RFQ-1142
+
+SKU      | Description                       | Qty   | UoM | Unit Price (USD)
+---------|-----------------------------------|-------|-----|------------------
+AL101    | Aloe Vera Extract, food grade     | 50    | KG  | 300.00
+
+Subtotal: 15,000.00 USD
+Terms: Net 30, FOB origin
