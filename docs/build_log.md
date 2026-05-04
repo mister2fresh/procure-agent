@@ -485,3 +485,19 @@ v1 schema is denormalized — `last_paid_*` and `on_hand_qty` / `reorder_point` 
 **Held drift / not done this session.** Concept-mapping doc (`docs/from_primitives_to_langgraph.md`) — section headers landed, prose still empty. Next-up.
 
 **Next:** concept-mapping doc prose (Claude drafts, user revises ruthlessly, same shape as the README). Then real match + flag logic against the in-memory product master, with `MatchResult` and `Exception_` schemas firming up.
+
+## 2026-05-04 — Day 2 (continued: graph.py concept mapping)
+
+No code changes. Walked through `graph.py` end-to-end to lock in the LangGraph mental model before match/flag bodies land.
+
+**Frame that landed.**
+- `graph.py` is a literal translation of the `agent.run` while-loop: nodes for the loop body, a conditional edge for the loop condition, a typed-dict state with an `operator.add` reducer on `messages` so node returns concatenate rather than overwrite.
+- `langgraph.prebuilt.create_react_agent` would give the same topology in one constructor call. Primitives path is the deliberate choice for this build.
+- The runtime differences vs. `agent.py` don't show up by reading the file — they show up at invoke time: durability (checkpointer), pausability (`interrupt_before`), observability (LangSmith spans per node, free), extensibility (add-node-add-edge vs. weaving more `while` branches).
+
+**Mental model for extension.**
+- Two kinds of "more" worth keeping separate: (1) filling stub bodies (`match` / `flag` / `approval`) leaves topology unchanged and makes traces richer; (2) new nodes or branches (retry on extract failure, clarify-on-low-confidence, parallel match fanout via `Send`) grow the topology.
+- `interrupt_before=["approval"]` is the structural seam between the autonomous zone (`extract → tools* → match → flag`) and the human-authorized zone (`approval → write-back`). That seam doesn't move as functionality lands.
+- Supplier onboarding, BOM creation, product master are separate `StateGraph`s sharing the architecture, not branches off `quote_workflow`.
+
+**Next:** match-node body against the in-memory product master. First node since `extract` to emit real state — first session where a LangSmith trace shows the pipeline past the ReAct loop.
