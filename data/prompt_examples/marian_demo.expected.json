@@ -34,6 +34,32 @@
       ],
       "min_order_qty": "30",
       "notes": null
+    },
+    {
+      "requested_sku": "MAG-PS-09",
+      "supplier_sku": "MAG-PS-09",
+      "description": "Pine shavings bedding",
+      "pack_size": "9 cu ft fluffed bale",
+      "quantity": "8",
+      "uom": "each",
+      "unit_price": "22.00",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "MAG-DT-12",
+      "supplier_sku": "MAG-DT-12",
+      "description": "Poly drip tubing, pressure-rated",
+      "pack_size": "1/2\" x 500 ft spool",
+      "quantity": "6",
+      "uom": "each",
+      "unit_price": "89.00",
+      "currency": null,
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
     }
   ],
   "payment_terms": "Net 30",

@@ -9,8 +9,8 @@
     {
       "requested_sku": "PM-C-2.2",
       "supplier_sku": "PM-C-2.2",
-      "description": "Sphagnum peat moss, compressed",
-      "pack_size": "2.2 cu ft bale",
+      "description": "Sphagnum peat moss",
+      "pack_size": "2.2 cu ft compressed bale",
       "quantity": "120",
       "uom": "each",
       "unit_price": "14.85",

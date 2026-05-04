@@ -2,11 +2,13 @@ Marian Ag
 Quote #Q-2026-0431  —  Issued 2026-04-15
 Valid through: (not specified)
 
-Item Code   Description           Pack    Qty   UoM     Unit Price
-MAG-AM-01   Alfalfa Meal          1 lb    300   units   $12.50
-MAG-FF-01   Fulvic Flow                   50    GAL     $48.00
-                                                100+    $44.00
-                                                250+    $40.00
+Item Code    Description                                      Pack    Qty    UoM     Unit Price
+MAG-AM-01    Alfalfa Meal                                     1 lb    300    units   $12.50
+MAG-FF-01    Fulvic Flow                                              50     GAL     $48.00
+                                                                      100+           $44.00
+                                                                      250+           $40.00
+MAG-PS-09    Pine shavings bedding, 9 cu ft fluffed bale              8      BALE    $22.00
+MAG-DT-12    Poly drip tubing, 1/2" x 500 ft, pressure-rated          6      SPOOL   $89.00
 
 MOQ on MAG-FF-01: 30 gal.
 Terms: Net 30, FOB origin.
