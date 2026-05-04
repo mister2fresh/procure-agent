@@ -1,0 +1,147 @@
+sku,description,category,uom,pack_size,preferred_supplier_name,last_paid_unit_price,last_paid_currency,last_paid_date,reorder_point,on_hand_qty,lead_time_days
+AL101,Aloe vera extract food grade powder,soil_amendment,kg,5 kg pail,Aloe Corp.,78.50,USD,2026-02-10,10,18,14
+RMC101,Microbe complete soil inoculant,soil_amendment,each,8 oz packet,Rootwise,32.00,USD,2026-03-15,20,35,7
+PM-C-2.2,Sphagnum peat moss compressed bale,soil_amendment,each,2.2 cu ft bale,Pacific Agri-Supply Co.,18.75,USD,2026-01-22,40,65,10
+KM-50,Kelp meal ascophyllum nodosum,fertilizer,each,50 lb bag,Pacific Agri-Supply Co.,42.50,USD,2026-02-18,30,52,10
+FBM-50,Feather meal 13-0-0 organic nitrogen,fertilizer,each,50 lb bag,Pacific Agri-Supply Co.,38.00,USD,2026-03-05,25,40,10
+BM-50,Bone meal 3-15-0 steamed granular,fertilizer,each,50 lb bag,Pacific Agri-Supply Co.,34.50,USD,2026-01-30,25,45,10
+NEEM-1G,Cold-pressed neem oil cosmetic grade,soil_amendment,each,1 gal jug,BioGarden Wholesale,48.00,USD,2025-11-12,8,12,14
+MYCO-CASE,Granular mycorrhizae inoculant,soil_amendment,case,case of 12,Fungi Perfecti Supply,145.00,USD,2025-09-20,4,7,21
+HUMIC-DRUM,Humic acid liquid concentrate 12%,soil_amendment,each,55 gal drum,Black Earth Organics,385.00,USD,2026-01-08,2,3,18
+WC-BAG,Premium screened worm castings,soil_amendment,each,30 lb bag,Cascade Worm Farm,22.00,USD,2025-12-15,30,48,7
+ROCK-50,Soft rock phosphate 0-3-0,fertilizer,each,50 lb bag,AgriMineral Corp.,28.50,USD,2025-10-22,20,32,14
+KELP-1LB,Fine ground kelp powder,fertilizer,each,1 lb bag,Coastal Kelp Industries,12.75,USD,2026-02-28,40,55,10
+GYP-BULK,Pelletized agricultural gypsum,soil_amendment,each,50 lb bag,Western Mineral Supply,15.50,USD,2025-08-14,25,40,7
+COMP-TEA-5G,Compost tea liquid concentrate,soil_amendment,each,5 gal pail,Brew-Rite Biologicals,65.00,USD,2026-03-20,6,10,10
+ALF-PEL-50,Alfalfa meal pelletized organic,fertilizer,each,50 lb bag,Valley Feed & Seed,32.00,USD,2025-07-18,15,28,10
+SOY-MEAL-50,Soybean meal 7-2-1 organic,fertilizer,each,50 lb bag,Heartland Organics,36.00,USD,2025-11-05,15,22,12
+COTTONSEED-50,Cottonseed meal 6-2-1 organic,fertilizer,each,50 lb bag,Southern Ag Products,33.50,USD,2026-01-14,15,20,12
+NITRILE-M-100,Nitrile gloves 4mil medium blue,hardware_mro,each,box of 100,Meridian Supply Co.,8.50,USD,2026-04-01,10,24,5
+NITRILE-L-100,Nitrile gloves 4mil large blue,hardware_mro,each,box of 100,Meridian Supply Co.,8.50,USD,2026-04-01,10,22,5
+SHOPRAG-25,Red cotton shop rags,hardware_mro,each,25 lb box,Meridian Supply Co.,18.75,USD,2026-02-12,4,6,5
+LUBE-WD40-1G,Multi-purpose lubricant industrial grade,hardware_mro,gal,1 gal can,Meridian Supply Co.,14.50,USD,2025-12-08,3,5,5
+EARPLG-FOAM,Corded foam earplugs NRR 32,hardware_mro,each,box of 200 pair,Meridian Supply Co.,42.00,USD,2026-03-18,3,5,5
+KMEAL-OMRI-50,Kelp meal OMRI listed organic,fertilizer,each,50 lb bag,Meridian Supply Co.,46.00,USD,2026-02-25,20,38,10
+TWINE-NAT-9K,Natural fiber baling twine,packaging,each,9000 ft spool,Meridian Supply Co.,32.50,USD,2025-10-30,6,10,7
+KMEAL-50,Norwegian sourced kelp meal,fertilizer,each,50 lb bag,Pacific Coast Amendments Ltd.,44.75,CAD,2026-03-10,20,34,14
+FISH-EM-5G,Fish emulsion 5-1-1 liquid fertilizer,fertilizer,each,5 gal pail,NutriGrow Organics,38.50,USD,2026-01-20,8,14,10
+ROCK-PHOS-50,Soft rock phosphate granular,fertilizer,each,50 lb bag,NutriGrow Organics,26.00,USD,2025-11-18,20,30,10
+GREENS-BUCKWHEAT,Buckwheat cover crop seed,cover_crop_seed,each,50 lb bag,NutriGrow Organics,42.00,USD,2026-03-01,10,18,7
+AZOMITE-44,Azomite trace mineral powder micronized,soil_amendment,each,44 lb bag,NutriGrow Organics,30.00,USD,2026-02-05,15,24,10
+NEEM-MEAL-50,Neem seed meal OMRI listed,fertilizer,each,50 lb bag,NutriGrow Organics,45.00,USD,2025-12-20,12,20,12
+BMEAL-50,Steamed bone meal fine grind,fertilizer,each,50 lb bag,Pacific Coast Amendments Ltd.,36.25,USD,2026-01-28,20,35,14
+GYP-AG-2000,Fine grade agricultural gypsum,soil_amendment,each,2000 lb tote,Pacific Coast Amendments Ltd.,210.00,USD,2025-09-15,2,3,21
+PERL-4CF,Horticultural perlite grade 3,soil_amendment,each,4 cu ft bag,Pacific Coast Amendments Ltd.,22.50,USD,2026-02-14,15,28,14
+MYCO-WP-25,Mycorrhizal inoculant wettable powder,soil_amendment,each,25 lb bag,Pacific Coast Amendments Ltd.,88.00,USD,2025-10-10,5,8,14
+PEAT-BALE-3.8,Compressed sphagnum peat moss bale,soil_amendment,each,3.8 cu ft bale,Pacific Coast Amendments Ltd.,24.50,CAD,2026-03-22,30,50,14
+PALLET-48-HT,Heat treated pallet 48x40 ISPM-15,packaging,each,,Pacific Coast Amendments Ltd.,12.00,USD,2026-04-05,50,80,7
+STRAP-PP-58,Polypropylene strapping machine grade,packaging,each,6000 ft coil,Pacific Coast Amendments Ltd.,58.00,USD,2025-11-25,4,6,10
+B-6204-2RS,Sealed deep groove bearing 6204-2RS,bearings_drive,each,,Precision Bearings & Drives,8.50,USD,2025-08-20,10,18,7
+B-6205-2RS,Sealed deep groove bearing 6205-2RS,bearings_drive,each,,Precision Bearings & Drives,9.25,USD,2025-09-10,10,16,7
+B-6206-2RS,Sealed deep groove bearing 6206-2RS,bearings_drive,each,,Precision Bearings & Drives,11.00,USD,2026-01-05,8,14,7
+B-6304-2RS,Sealed deep groove bearing 6304-2RS,bearings_drive,each,,Precision Bearings & Drives,12.50,USD,2025-07-28,8,12,7
+PIL-UCP-205,Pillow block bearing UCP-205 1in bore,bearings_drive,each,,Precision Bearings & Drives,18.75,USD,2026-02-20,6,10,10
+FLG-UCFL-205,Two-bolt flange bearing UCFL-205 1in,bearings_drive,each,,Precision Bearings & Drives,22.50,USD,2025-12-02,6,8,10
+CPL-LM-095,Jaw coupling L-095 with NBR spider,bearings_drive,each,,Precision Bearings & Drives,16.00,USD,2026-03-28,4,6,10
+BLT-NK-1HP,NEMA 56 drive belt pulley 1HP,bearings_drive,each,,Precision Bearings & Drives,38.00,USD,2025-10-15,3,5,14
+FEM-50,Feather meal 13-0-0 organic,fertilizer,each,50 lb bag,TerraGreen Supply,36.50,USD,2026-04-10,20,35,7
+BLDM-50,Blood meal 12-0-0 organic,fertilizer,each,50 lb bag,TerraGreen Supply,42.00,USD,2026-03-25,15,28,7
+ALFM-50,Alfalfa meal organic nitrogen source,fertilizer,each,50 lb bag,TerraGreen Supply,28.50,USD,2026-02-08,15,30,7
+GREENS-CC,Cover crop mix oats peas vetch,cover_crop_seed,lb,50 lb bag,TerraGreen Supply,1.85,USD,2026-01-15,200,350,7
+WORMC-1CY,Screened worm castings bulk tote,soil_amendment,each,1 cu yd tote,TerraGreen Supply,280.00,USD,2025-11-30,2,4,10
+BIOCH-2CF,Hardwood biochar soil amendment,soil_amendment,each,2 cu ft bag,TerraGreen Supply,34.00,USD,2026-04-02,10,18,10
+VERM-4CF,Vermiculite horticultural coarse grade,soil_amendment,each,4 cu ft bag,Mountain Mineral Co.,24.00,USD,2026-01-18,12,8,14
+SULFUR-PRILL-50,Elemental sulfur prills 90%,soil_amendment,each,50 lb bag,PureSulfur Inc.,19.50,,2025-12-04,10,15,10
+DIATOM-25,Diatomaceous earth food grade,soil_amendment,each,25 lb bag,FreshEarth Supply,18.00,USD,2026-02-22,8,14,7
+CHARCOAL-40,Activated charcoal granular,soil_amendment,each,40 lb bag,CarbonWorks LLC,52.00,USD,2025-11-10,5,9,14
+ZEOLITE-44,Natural zeolite clinoptilolite granular,soil_amendment,each,44 lb bag,ZeoTech Minerals,26.00,USD,2026-03-14,10,16,12
+GLACIAL-50,Glacial rock dust remineralizer,soil_amendment,each,50 lb bag,AgriMineral Corp.,16.50,USD,2025-10-08,20,30,10
+OYSTER-50,Oyster shell flour calcium source,soil_amendment,each,50 lb bag,Maritime Shell Co.,17.00,USD,2026-01-25,15,22,10
+BENTONITE-50,Sodium bentonite clay powder,soil_amendment,each,50 lb bag,ClayTech Industries,21.00,USD,2025-03-10,10,12,14
+COCO-BALE,Coco coir compressed 5kg brick,soil_amendment,each,5 kg brick,TropiCoir Imports,8.50,USD,2026-02-01,30,45,21
+LANGBEIN-50,Langbeinite 0-0-22 sulfate of potash-magnesia,fertilizer,each,50 lb bag,Ogden Mineral Supply,38.00,USD,2025-09-28,10,14,12
+CALCITE-50,Calcitic limestone fine grind,soil_amendment,each,50 lb bag,LimeStar Aggregates,14.00,USD,2026-03-08,20,32,7
+LEON-50,Leonardite humate granular,soil_amendment,each,50 lb bag,Dakota Humate Corp.,28.00,USD,2025-12-18,8,12,14
+PUMICE-4CF,Pumice horticultural grade medium,soil_amendment,each,4 cu ft bag,Cascade Pumice Inc.,20.00,USD,2026-01-12,10,15,10
+SILICA-40,Rice hull ash silica amendment,soil_amendment,each,40 lb bag,RiceHull Energy Co.,22.00,USD,2025-08-22,6,10,14
+FULVIC-5G,Fulvic acid liquid concentrate,soil_amendment,each,5 gal pail,Black Earth Organics,72.00,USD,2026-04-08,4,7,12
+BASALT-50,Basalt rock dust fine paramagnetic,soil_amendment,each,50 lb bag,AgriMineral Corp.,18.50,USD,2026-02-15,15,24,10
+GRNSD-50,Greensand iron potassium silicate,soil_amendment,each,50 lb bag,AtlanticMin Corp.,32.00,USD,2025-10-20,10,16,14
+BIOSOLID-CY,Composted biosolids Class A bulk,soil_amendment,each,1 cu yd tote,Metro Compost Authority,145.00,USD,2026-01-05,2,3,7
+WOLLAST-50,Wollastonite calcium silicate powder,soil_amendment,each,50 lb bag,Mountain Mineral Co.,35.00,USD,2025-12-28,6,10,14
+CRAB-50,Crab shell meal 4-3-0,fertilizer,each,50 lb bag,Dungeness Feeds,55.00,USD,2026-03-18,8,12,12
+SULK-50,Sulfate of potash 0-0-50 granular,fertilizer,each,50 lb bag,Great Salt Lake Minerals,42.00,USD,2025-11-14,12,20,10
+GUANO-BAT-25,Bat guano high phosphorus 0-10-0,fertilizer,each,25 lb bag,Caribbean Guano Ltd.,48.00,USD,2026-02-20,10,6,21
+GUANO-SEA-25,Seabird guano 12-8-2 pelleted,fertilizer,each,25 lb bag,Peruvian Organics,44.00,USD,2025-10-02,8,12,21
+FISHMEAL-50,Fish meal 10-6-0 steam dried,fertilizer,each,50 lb bag,North Pacific Fishmeal,40.00,USD,2026-01-30,12,18,14
+SHRIMP-50,Shrimp shell meal 6-6-0,fertilizer,each,50 lb bag,Gulf Coast Organics,46.00,USD,2026-03-12,8,14,14
+SULPMAG-50,Sul-Po-Mag K-Mag 0-0-22 granular,fertilizer,each,50 lb bag,Ogden Mineral Supply,36.00,USD,2025-09-18,10,16,10
+VERMI-EXT-5G,Vermicompost liquid extract,fertilizer,each,5 gal pail,Brew-Rite Biologicals,58.00,USD,2026-04-02,4,8,10
+MOP-50,Muriate of potash 0-0-60 granular,fertilizer,each,50 lb bag,Potash Corp Northwest,30.00,USD,2025-12-10,15,22,10
+NITRATE-SOD-50,Chilean nitrate 16-0-0 prilled,fertilizer,each,50 lb bag,SQM AgriNorth,34.00,USD,2026-02-08,10,14,14
+BLEND-424-50,Custom organic NPK blend 4-2-4,fertilizer,each,50 lb bag,Pacific Agri-Supply Co.,40.00,USD,2026-03-22,12,18,10
+DOLO-50,Dolomitic limestone pelletized,fertilizer,each,50 lb bag,LimeStar Aggregates,15.00,USD,2026-01-08,20,30,7
+IRON-SULF-25,Iron sulfate granular ferrous,fertilizer,each,25 lb bag,TraceElement Supply Co.,18.00,USD,2025-11-22,8,14,10
+ZINC-SULF-10,Zinc sulfate monohydrate powder,fertilizer,each,10 lb bag,TraceElement Supply Co.,14.50,USD,2026-02-12,6,10,10
+MGOX-25,Magnesium oxide granular 56%,fertilizer,each,25 lb bag,Magnesium Works LLC,22.00,USD,2026-03-05,5,8,12
+BORAX-AG-10,Agricultural borax trace element,fertilizer,each,10 lb bag,TraceElement Supply Co.,12.00,USD,2025-04-22,4,6,14
+COPPER-SULF-5,Copper sulfate pentahydrate crystal,fertilizer,each,5 lb bag,TraceElement Supply Co.,16.00,,2025-10-18,4,7,10
+MOLY-1,Sodium molybdate trace element,fertilizer,each,1 lb jar,TraceElement Supply Co.,28.00,,2026-01-14,3,4,14
+MN-SULF-25,Manganese sulfate monohydrate granular,fertilizer,each,25 lb bag,TraceElement Supply Co.,20.00,USD,2025-12-30,6,10,10
+CALNITR-50,Calcium nitrate 15.5-0-0 granular,fertilizer,each,50 lb bag,NutriGrow Organics,26.00,USD,2026-04-05,15,22,10
+POTASH-WOOD-50,Wood ash potash 0-1-5 screened,fertilizer,each,50 lb bag,Valley Feed & Seed,20.00,USD,2025-08-30,10,16,7
+SEAWEED-5G,Liquid seaweed concentrate cold-processed,fertilizer,each,5 gal pail,Coastal Kelp Industries,48.00,USD,2026-03-28,6,10,10
+HUMATE-GRAN-50,Humate granules soil conditioner,soil_amendment,each,50 lb bag,Dakota Humate Corp.,30.00,USD,2026-01-20,8,14,12
+CLOVER-CRIM-50,Crimson clover cover crop seed,cover_crop_seed,each,50 lb bag,Willamette Seed Co.,58.00,USD,2026-02-28,8,12,7
+RYE-WINTER-50,Winter rye cereal grain seed,cover_crop_seed,each,50 lb bag,Heartland Organics,32.00,USD,2025-11-10,10,18,7
+RADISH-TILL-25,Tillage radish cover crop seed,cover_crop_seed,each,25 lb bag,Cover Crop Solutions,45.00,USD,2026-03-15,6,10,7
+VETCH-HAIRY-50,Hairy vetch inoculated cover crop seed,cover_crop_seed,lb,50 lb bag,Prairie Seed Collective,2.40,USD,2026-01-22,150,240,7
+MUSTARD-YLW-50,Yellow mustard cover crop seed,cover_crop_seed,each,50 lb bag,Willamette Seed Co.,38.00,USD,2025-10-15,8,14,7
+SOYBN-CC-50,Soybeans cover crop seed inoculated,cover_crop_seed,lb,50 lb bag,TerraGreen Supply,1.60,USD,2026-02-10,200,310,7
+POLY-BAG-50LB,Polyethylene bag 50 lb capacity,packaging,each,bundle of 100,PackRight Industries,42.00,USD,2026-01-28,10,16,7
+KRAFT-25W,Kraft paper bag 25 lb multi-wall,packaging,each,bundle of 50,TimberPack LLC,28.00,USD,2025-12-15,15,24,7
+KRAFT-50W,Kraft paper bag 50 lb multi-wall,packaging,each,bundle of 50,TimberPack LLC,36.00,USD,2026-02-05,15,22,7
+STRETCH-20M,Stretch wrap 20in 80 gauge machine,packaging,each,roll,Sigma Packaging,38.00,USD,2026-03-10,8,12,5
+LABEL-THERM-4X6,Thermal label 4x6 direct transfer,packaging,each,roll of 1000,LabelDirect Inc.,12.00,USD,2025-11-20,20,30,5
+BOX-CORR-24,Corrugated box 24x18x12 RSC,packaging,each,bundle of 25,Pacific Packaging Co.,48.00,USD,2026-01-15,10,14,7
+BOX-CORR-12,Corrugated box 12x12x8 RSC,packaging,each,bundle of 25,Pacific Packaging Co.,32.00,USD,2026-03-02,10,18,7
+TAPE-PACK-2IN,Clear packing tape 2in x 110yd,packaging,each,case of 36,Sigma Packaging,42.00,USD,2025-10-28,4,6,5
+TAPE-DUCT-2IN,Silver duct tape 2in x 60yd,packaging,each,case of 24,Sigma Packaging,56.00,USD,2026-02-18,3,5,5
+CORNER-BD-48,Cardboard edge protector 48in,packaging,each,bundle of 50,Pacific Packaging Co.,18.00,USD,2025-12-22,10,16,7
+DESIC-5G-1000,Silica gel desiccant 5g packet,packaging,each,case of 1000,DrySafe Solutions,32.00,USD,2026-01-10,4,8,10
+PAIL-5G-HDPE,HDPE pail 5 gallon white,packaging,each,,Container Supply West,4.80,USD,2026-03-25,40,60,7
+LID-5G-SNAP,Snap-on lid for 5 gallon pail,packaging,each,,Container Supply West,1.50,USD,2026-03-25,40,55,7
+DRUM-55-OPEN,Open head steel drum 55 gallon,packaging,each,,Container Supply West,68.00,USD,2026-04-08,6,3,14
+DRUM-LID-RING,Bolt ring closure for 55 gal drum,packaging,each,,Container Supply West,8.50,USD,2026-01-30,8,12,10
+IBC-275-RECON,IBC tote 275 gallon reconditioned,packaging,each,,Container Supply West,185.00,USD,2025-09-12,2,4,21
+LINER-DRUM-CL,Clear poly drum liner 38x64,packaging,each,roll of 50,Sigma Packaging,24.00,USD,2026-02-08,6,10,7
+SLIP-40X48,Plastic slip sheet 40x48,packaging,each,bundle of 50,Sigma Packaging,62.00,USD,2025-11-15,4,6,10
+BAND-STL-34,Steel banding 3/4in x 0.020,packaging,each,100 lb coil,Steel Band Supply Co.,78.00,USD,2026-03-18,3,5,10
+SEAL-PUSH-34,Push-type seal for 3/4in banding,packaging,each,box of 1000,Steel Band Supply Co.,22.00,USD,2026-01-22,4,7,7
+LBL-BUCKET-500,Blank bucket label roll,packaging,each,roll of 500,LabelDirect Inc.,15.00,USD,2025-12-08,8,12,5
+ZIP-1GAL-100,Resealable poly bag 1 gallon,packaging,each,box of 100,PackRight Industries,6.50,USD,2026-02-28,10,16,5
+STAPLE-CARTON,Carton closing staple 1-1/4in,packaging,each,box of 2000,Sigma Packaging,9.00,USD,2025-10-05,6,10,5
+FOAM-24X48,PE foam sheet 24x48x1/4in,packaging,each,bundle of 24,Sigma Packaging,18.00,USD,2026-04-12,6,8,7
+TAG-SHIP-WP,Weatherproof shipping tag wired,packaging,each,box of 1000,LabelDirect Inc.,14.00,USD,2026-01-05,5,8,5
+TARP-POLY-20X30,Polyethylene tarp 20x30 blue,packaging,each,,PackRight Industries,28.00,USD,2025-11-28,4,6,7
+RESP-N95-20,N95 particulate respirator,hardware_mro,each,box of 20,Meridian Supply Co.,18.00,USD,2026-03-08,8,14,5
+GOGGLE-SPLASH,Splash resistant safety goggles,hardware_mro,each,,Meridian Supply Co.,7.50,USD,2025-12-18,10,16,5
+BROOM-PUSH-24,Push broom 24in stiff bristle,hardware_mro,each,,Meridian Supply Co.,22.00,USD,2026-02-02,3,5,7
+DUSTPAN-IND,Industrial steel dustpan,hardware_mro,each,,Meridian Supply Co.,14.00,USD,2025-09-25,4,6,7
+HOSE-GARDEN-100,Garden hose 100ft 5/8in heavy duty,hardware_mro,each,,FlowTech Supply,45.00,USD,2026-01-18,2,3,7
+WRENCH-ADJ-12,Adjustable wrench 12in chrome vanadium,hardware_mro,each,,ToolHaus Direct,24.00,USD,2025-02-15,3,4,7
+GREASE-GUN-14,Lever action grease gun 14oz,hardware_mro,each,,ToolHaus Direct,32.00,USD,2026-03-30,2,3,10
+GREASE-CART-14,Lithium grease cartridge 14oz,hardware_mro,each,case of 10,ToolHaus Direct,38.00,USD,2026-01-12,4,8,7
+FILTER-HVAC-20,HVAC filter 20x20x1 MERV 8,hardware_mro,each,case of 12,AirFlow Depot,36.00,USD,2025-11-05,4,6,7
+BULB-LED-100,LED bulb 100W equivalent 5000K,hardware_mro,each,case of 12,AirFlow Depot,28.00,USD,2026-02-22,4,6,5
+GLOVE-LTHR-L,Leather work gloves large pair,hardware_mro,each,,Meridian Supply Co.,12.00,USD,2026-04-10,6,4,5
+BELT-V-B68,Classical V-belt B68 wrapped,bearings_drive,each,,Precision Bearings & Drives,14.50,USD,2026-01-08,4,2,7
+BELT-V-A52,Classical V-belt A52 wrapped,bearings_drive,each,,Precision Bearings & Drives,11.00,USD,2025-10-30,4,6,7
+SPRKT-40B-18,Roller chain sprocket 40B 18 tooth,bearings_drive,each,,Precision Bearings & Drives,22.00,USD,2026-03-05,3,5,10
+CHAIN-40-10FT,Roller chain #40 10ft box,bearings_drive,each,,Precision Bearings & Drives,28.00,USD,2025-04-12,3,5,10
+SHAFT-COL-1IN,Set screw shaft collar 1in bore steel,bearings_drive,each,,Precision Bearings & Drives,5.50,USD,2026-02-18,6,10,7
+COMPOST-CY,Composted green waste bulk screened,soil_amendment,each,1 cu yd tote,Metro Compost Authority,120.00,USD,2026-03-15,2,4,7
+PERL-2CF,Perlite medium grade horticultural,soil_amendment,each,2 cu ft bag,Pacific Coast Amendments Ltd.,14.00,USD,2025-12-05,12,18,14
+BARK-FINE-3CF,Composted fine bark mulch,soil_amendment,each,3 cu ft bag,Cedar Grove Compost,16.00,USD,2026-02-10,15,22,7
+COIR-5KG,Coco coir compressed 5kg block,soil_amendment,each,5 kg block,TropiCoir Imports,9.00,USD,2026-01-28,25,38,21
+PALLET-WRAP-80,Machine stretch wrap 80 gauge 20in,packaging,each,roll,Sigma Packaging,34.00,USD,2025-12-20,6,10,5

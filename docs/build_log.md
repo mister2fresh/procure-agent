@@ -409,3 +409,16 @@ Three fixtures now perfect (`02_aloe_corp_prose_email`, `quote_10`, `quote_11`).
 - `description` 2, `notes` 1, `shipping_terms` 1 — small singletons, mostly word-order or scope edge cases.
 
 **Next:** the easy wins are gone. Remaining classes need either (a) comparator semantic-equivalence for prose fields and pack_size canonicalization, or (b) per-fixture golden audits — neither cheap. Worth weighing against shipping the LangGraph node-body work the harness was built to support.
+
+## 2026-05-04 — Day 2 (continued: inventory CSV + Day-3 plan)
+
+Inventory master at `data/inventory/inventory.csv`: 146 rows (51 anchors + 95 filler), 12 columns. Two-pass prompt to claude.ai — anchors-first to bound single-shot risk on row count + distribution constraints, filler in a second turn applying constraints across the full set. All 51 anchor SKUs from the eval corpus present verbatim. `KMEAL-44` absent on purpose (preserves the NutriGrow substitution exception case). Validated: unique SKUs, canonical UoM/category sets, all prices parse Decimal, all dates ISO. Distribution: 5 low-stock, 3 empty-currency, 4 stale-dated, 2 CAD anchors.
+
+Three exception signals baked in by design (worth knowing about as match logic lands):
+- `KMEAL-50` / `PEAT-BALE-3.8` in CAD — fires currency mismatch against corpus quotes that emit `currency: null` (Pacific Coast Amendments uses bare `$`).
+- `STRAP-PP-58` master pack `"6000 ft coil"` vs corpus `'5/8" x 9000 ft'` / UoM `ROLL` — fires pack-size variance + noun divergence (coil vs roll).
+- `AL101` master pack `"5 kg pail"` vs corpus 50 kg order — tests bulk-vs-pail handling on the match node.
+
+v1 schema is denormalized — `last_paid_*` and `on_hand_qty` / `reorder_point` / `lead_time_days` collapse what an ERP would split into `products` / `price_history` / `inventory_levels` tables. Explicit v1 simplification; production split named in the README design-decisions section.
+
+**Plan from here.** Product Pydantic model + CSV loader (in-memory `dict[str, Product]`) → state types (`QuoteWorkflowState`, `MatchResult`, `Exception_`) → hand-authored LangGraph extract subgraph (`extract_node` + `ToolNode` + `should_continue`; speak-in-primitives, not `create_react_agent`) → concept-mapping doc at `docs/from_primitives_to_langgraph.md` → stub match/flag/approval nodes → compile with `MemorySaver` + `interrupt_before=["approval_node"]` → end-to-end run on one fixture. Real match/flag logic, eval harness wrapped around graph runs, Supabase migration, FastAPI HITL endpoint follow as pace allows — ordered next-steps, not hard-scheduled to days.
