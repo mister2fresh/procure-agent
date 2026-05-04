@@ -449,3 +449,39 @@ v1 schema is denormalized — `last_paid_*` and `on_hand_qty` / `reorder_point` 
 - Loader is a function, not a class. No caching; v1 reads the CSV on every call. Caching moves to the LangGraph state when match logic lands.
 
 **Next:** state types (`QuoteWorkflowState`, `MatchResult`, `Exception_`) and the hand-authored extract subgraph. State types are scaffolding; subgraph node bodies are the user's to write per the working agreement.
+
+## 2026-05-04 — Day 2 (continued: LangGraph extract subgraph + smoke tests)
+
+`QuoteWorkflowState` and the extract subgraph landed. Side-by-side run on the aloe anchor fixture produces the same `Quote` JSON as `agent.run` modulo Sonnet stochasticity on `raw_notes`. Six smoke tests cover compile/topology + pure-function routing without API calls; full suite at 22 passing.
+
+**State (`src/procure_agent/state.py`).**
+- `QuoteWorkflowState` TypedDict, `total=False`. `messages: Annotated[list[dict], operator.add]` is the substantive choice — the reducer makes node returns concatenate, so node bodies stay pure (read state, return delta) and the runtime owns appending.
+- `MatchResult` and `Exception_` shipped as placeholder shells (one field each + a `line_index` pointer). Schemas firm up when match/flag bodies land — premature commitment to confidence types or a `kind` enum was the wrong call when the match logic doesn't exist yet.
+
+**Graph (`src/procure_agent/graph.py`).**
+- `extract_node` — one Anthropic turn. Reads `state["messages"]`, calls `client.messages.create(...)` with the same `(MODEL, MAX_TOKENS, SYSTEM, TOOLS)` as `agent.run`, returns `{"messages": [<assistant>]}`. On terminal turn (`stop_reason != "tool_use"`), also parses fenced JSON via `extract_json_block` and returns `{..., "quote": Quote(...)}`.
+- `tools_node` — hand-rolled, NOT `langgraph.prebuilt.ToolNode`. Iterates `tool_use` blocks from the last assistant message, dispatches via the `agent.HANDLERS` table, returns one user-role message containing the `tool_result` blocks.
+- `should_continue` — pure function over the last message; routes `"tools"` if any `tool_use` block, else `"match"`.
+- `match_node` / `flag_node` / `approval_node` — no-op stubs returning `{}` so the graph compiles + runs end-to-end through `interrupt_before=["approval"]`. Bodies land with the match/flag work.
+- `build_graph()` wires `START → extract → (tools → extract)* → match → flag → approval → END`, compiles with `MemorySaver()`. Module-level `graph = build_graph()` so other modules import the compiled artifact directly.
+- `__main__` mirrors `agent.py`'s, so `uv run python -m procure_agent.graph <fixture>` is symmetric with `uv run python -m procure_agent.agent <fixture>` — same prompt, same fixture, different runtime substrate.
+
+**Decisions worth keeping:**
+- **(A) Quote parse inside `extract_node`, not a separate `parse_node`.** Single-node responsibility for "extract subgraph produces a Quote." A parse_node fragments responsibility for a one-line transform and adds graph ceremony that doesn't earn its keep.
+- **(B) Hand-rolled `tools_node`, not `ToolNode` from `langgraph.prebuilt`.** ToolNode expects LangChain `BaseMessage` types and `@tool`-decorated handlers. Adopting it would mean wrapping the existing Anthropic-native message blocks and rewiring the prompt path — cost without payoff for a 98% field-match prompt that's already tuned. Hand-rolled mirrors `agent.run`'s dispatch literally, which makes the concept-mapping doc read as "the for-loop body became a node" rather than "we adopted a framework."
+- **(C) `_extract_json_block` renamed to public `extract_json_block`.** Used by both `agent.py` and `graph.py` now; underscore-leak across modules is the wrong shape.
+- **(D) Caller seeds `messages` at entry; nodes stay pure.** The `__main__` bootstrap builds `[{"role": "user", "content": f"Extract the quote in {fixture} as JSON."}]` and passes it in. Node bodies read state and return deltas — no auto-seeding from `fixture_filename` even though that would be a few-line shortcut.
+
+**Smoke tests (`tests/test_graph.py`, 6 passing).** All pure / no API.
+- `test_graph_compiles_with_expected_nodes` — `set(graph.nodes.keys())` matches the 6 names (5 + `__start__`).
+- `test_module_level_graph_is_compiled` — pins the import-time compile.
+- `test_should_continue_routes_to_tools_when_tool_use_present` / `..._to_match_when_no_tool_use` — both branches of the conditional edge.
+- `test_tools_node_dispatches_read_file` — uses the real anchor fixture (`01_aloe_corp_clean_tabular.txt`); asserts `"ALOE CORP"` round-trips through the JSON-encoded `tool_result` content.
+- `test_tools_node_skips_text_blocks` — only `tool_use` blocks dispatch; text blocks ignored.
+- Skipped: `extract_node` parse-with-mock (low value, mostly tests the mock plumbing). Deferred: end-to-end with mocked client (pays for the setup once match/flag bodies exist).
+
+**Side-by-side run.** Both invocations on `01_aloe_corp_clean_tabular.txt` produced identical `Quote` JSON on every field except `raw_notes` (one returned `null`, one returned `"Subtotal: 15,000.00 USD"`). Sonnet stochasticity, not a translation defect — same prompt, same model, two independent calls.
+
+**Held drift / not done this session.** Concept-mapping doc (`docs/from_primitives_to_langgraph.md`) — section headers landed, prose still empty. Next-up.
+
+**Next:** concept-mapping doc prose (Claude drafts, user revises ruthlessly, same shape as the README). Then real match + flag logic against the in-memory product master, with `MatchResult` and `Exception_` schemas firming up.

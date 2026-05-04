@@ -153,7 +153,7 @@ DEFAULT_FIXTURE = "01_aloe_corp_clean_tabular.txt"
 JSON_BLOCK = re.compile(r"```json\s*(.*?)\s*```", re.DOTALL)
 
 
-def _extract_json_block(resp: Message) -> str:
+def extract_json_block(resp: Message) -> str:
     """Pull the single fenced ```json``` block from the final assistant message.
 
     Raises:
@@ -169,5 +169,5 @@ def _extract_json_block(resp: Message) -> str:
 if __name__ == "__main__":
     fixture = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_FIXTURE
     resp = run(f"Extract the quote in {fixture} as JSON.")
-    quote = Quote.model_validate_json(_extract_json_block(resp))
+    quote = Quote.model_validate_json(extract_json_block(resp))
     print(quote.model_dump_json(indent=2))
