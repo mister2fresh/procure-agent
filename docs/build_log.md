@@ -297,3 +297,36 @@ After golden fix, Meridian's only real drift is one TWINE-NAT-9K line: agent lef
 **Failure-mode observation worth keeping:** **Restrictive rules with carve-outs reduce specific regressions but don't strengthen the underlying prohibition.** Edit #1 fixed MOQs (the structured-field carve-out clause). It did not fix Terragreen's 3 line.notes lifts or Precision's pack_size lift from prose — those are exactly the prohibition rule A was intended to enforce. Implication: the model's "lift commentary near a line item" instinct is strong; explicit carve-outs scope but don't suppress it. May need an explicit anti-pattern in the few-shot, or accept that the harness comparator handles this drift class.
 
 **Next:** harness wiring is the next big step. Manual diffing has now twice surfaced the same drift classes; further sweeps will not surface new rules — only more instances of the held drift. Field-aware comparator (numeric Decimal equality, prose-whitespace tolerance, raw_notes content-presence rather than verbatim) will let us distinguish "real new drift" from "known cosmetic noise" in seconds rather than minutes-of-manual-eyeballing per fixture.
+
+## 2026-05-04 — Day 2 (baseline capture + comparator line-key bug)
+
+First clean baseline through `evals/run.py` on the full 14-fixture corpus. Sequential, no 429s. Artifact: `evals/runs/20260504T142352Z.json`.
+
+**Top-line:** 746/774 field matches (96.4%). 0 format_drift, 28 value_mismatch. Line P/R = 1.00 on every fixture. (Fixture 12 reported 0.67 before the comparator fix below; that was harness math, not extraction drift — 3/3 lines actually match post-fix.)
+
+**Drift concentration matches last session's predictions; no new classes surfaced.** Per-field failure breakdown:
+
+- `raw_notes` — 8 fixtures drift (paraphrasing; held edit #2 territory)
+- `line_items.*.description` — 8 mismatches (pack/description fold)
+- `line_items.*.pack_size` — 6 mismatches (Rule B trigger 1 weak compliance)
+- `line_items.*.notes` — 5 mismatches (Rule A loose on non-structured lifting)
+- `shipping_terms` — 1 mismatch (Northstar)
+- `02_aloe` still drifting on the same `food-grade` / `Food-grade` source-casing miss
+
+Confirms the prior session's call: harness sweeps will surface more *instances* of held drift, not new classes. We now have the field-grouped count signal needed to prioritize prompt-edit candidates by frequency rather than guess from the last fixture sampled.
+
+**Comparator bug surfaced and fixed.** Fixture 12 reported `matched_lines=2`, `line_count_predicted=3`, `only_predicted=0`, `only_golden=0` — math doesn't close. Cause: `_line_key` in `evals/comparator.py` keys on `(requested_sku, supplier_sku, quantity)`; fixture 12 items 1 and 2 are both `(null, null, "12")` (different IBC totes — 275-gal vs 330-gal — at the same buyer qty, no SKU column in the source). The dict-keyed match collapsed both into a single bucket entry; the second line silently overwrote the first. Two real lines became one match with zero `only_predicted` flag.
+
+Fix: replaced dict-keyed match with bucket-by-key + positional pairing within bucket (`_bucket_by_key`). Unique-key behavior is unchanged; colliding keys now pair positionally and surplus on either side counts toward `only_predicted` / `only_golden`. Regression coverage in `tests/test_comparator.py` (collision pair, surplus on one side, reordered unique keys).
+
+**Failure-mode lesson:** **silent matching errors are a comparator failure mode the per-field breakdown can't expose by itself.** Field-match looked clean on fixture 12 because the matched line *fields* were correct — the lost line was simply absent from the comparison. An invariant assertion (`matched + only_predicted = line_count_predicted` and same on golden) would have caught this on the very first run; worth adding to the harness if a similar bug ever recurs. Skipping for now since the fix removes the recurrence vector.
+
+**Next:** dig into the held drift classes with harness numbers in hand. Frequency ranking (raw_notes ≥ description ≥ pack_size > notes > shipping_terms) tells us where prompt-edit ROI is highest; per-fixture instances are where individual rule wording will get tested.
+
+**Mid-session: split the 28 mismatches into golden bug / comparator gap / real drift, then closed the first two.**
+
+- **Golden bug (fixture 12 `raw_notes`):** golden had stripped source's `**` markers, paraphrased `your` → `buyer` and `The original` → `Original` despite verbatim rule. Restored to source-verbatim form. Eliminated the mismatch and unblocked the line-key collision (P/R 0.67 → 1.00 — the collision had already been comparator-fixed; the golden fix removes the residual raw_notes drift).
+- **Comparator gap (whitespace-only drift in prose):** added `PROSE_FIELDS` set + `_bucket_prose` tolerance to `evals/comparator.py`. Whitespace-collapse-equivalent strings now bucket as `format_drift`; semantic drift still buckets as `value_mismatch`. 5 unit tests pinning behavior in `tests/test_comparator.py` (paragraph separator drift, line-wrap drift, substantive change still mismatches, null-vs-string still mismatches, decimal-field path unaffected by prose tolerance).
+- **Re-run after both fixes (artifact `evals/runs/20260504T150750Z.json`):** 752/784 (95.9%); fixture 12 fully clean except 1 line.notes source-attribution miss. Two run-to-run observations worth keeping: (a) **prose-whitespace tolerance fired zero times this run** — every raw_notes mismatch was substantive (paraphrasing or content swap), not whitespace-only. The tolerance is correctly built (tests pin it) and will catch the drift class when it recurs, but most "raw_notes drift" is structural rephrasing, not formatting. (b) **Precision currency surged 0 → 8 mismatches** — agent over-defaulted to USD on all 8 lines despite source having only `$`. Same fixture went `null` correctly in the prior baseline. The build log already flagged this as Sonnet noise on currency; reproduces here. May be worth a few-shot anti-pattern showing bare-`$` → `null` on a US-supplier-shaped fixture, since prompt-rule alone has weak compliance.
+
+**Held drift classes after fixes (32 mismatches, Bucket C):** pack-noun fold (description ↔ pack_size, 6 mismatches across Quote 07 PEAT, Meridian TWINE, Pacific STRAP — same class flagged twice prior), currency over-default (Precision, 8), substantive `raw_notes` paraphrasing (7), per-line `notes` scoping (5), pack_size ordering (Quote 08, 1), shipping_terms cross-span combine (Quote 09, 1), 02_aloe sentence-cap casing (1). Pack-noun fold remains the highest-ROI prompt-edit candidate; currency over-default jumped into top-1 by count this run on a single fixture.

@@ -2,14 +2,23 @@
 
 Operates on raw JSON dicts (not Pydantic instances) so source precision survives:
 ``"300"`` and ``"300.00"`` are bucketed as ``format_drift``, not silently coerced
-into match. Line items are matched on a composite identity key
-``(requested_sku, supplier_sku, quantity)``; price stays out so price drift
-surfaces as a matched-line field mismatch instead of a P/R loss. Tier prices
-are sorted by ``min_qty`` before compare (order is cosmetic per prompt).
+into match. Prose fields (``raw_notes``, ``description``, etc.) get a similar
+whitespace-tolerance pass — runs of whitespace collapsed to single spaces — so
+line-wrap and ``\\n`` vs ``\\n\\n`` separator drift surfaces as ``format_drift``
+rather than ``value_mismatch``; substantive paraphrasing or content changes
+still register as ``value_mismatch``. Line items are matched on a composite
+identity key ``(requested_sku, supplier_sku, quantity)``; price stays out so
+price drift surfaces as a matched-line field mismatch instead of a P/R loss.
+When the key collides (e.g. multiple null-SKU items at the same quantity),
+lines are bucketed by key and paired positionally within the bucket — surplus
+on either side counts toward ``only_predicted`` / ``only_golden`` instead of
+collapsing into a single match. Tier prices are sorted by ``min_qty`` before
+compare (order is cosmetic per prompt).
 """
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -24,6 +33,21 @@ DECIMAL_FIELDS: frozenset[str] = frozenset(
         "line_items.*.min_order_qty",
         "line_items.*.tier_prices.*.min_qty",
         "line_items.*.tier_prices.*.unit_price",
+    }
+)
+
+# Field paths whose values are verbatim supplier prose. Pure-whitespace drift
+# (line-wrap, paragraph separators, trailing whitespace) bucketed as
+# format_drift; semantic differences still surface as value_mismatch.
+PROSE_FIELDS: frozenset[str] = frozenset(
+    {
+        "supplier_name",
+        "payment_terms",
+        "shipping_terms",
+        "raw_notes",
+        "line_items.*.description",
+        "line_items.*.pack_size",
+        "line_items.*.notes",
     }
 )
 
@@ -94,9 +118,27 @@ def _bucket_decimal(predicted: Any, golden: Any) -> str:
     return "value_mismatch"
 
 
+def _normalize_prose(s: str) -> str:
+    """Collapse all whitespace runs to single spaces; strip leading/trailing."""
+    return " ".join(s.split())
+
+
+def _bucket_prose(predicted: Any, golden: Any) -> str:
+    """Bucket a prose-field compare. Whitespace-equivalent strings are format_drift."""
+    if predicted == golden:
+        return "match"
+    if not isinstance(predicted, str) or not isinstance(golden, str):
+        return "value_mismatch"
+    if _normalize_prose(predicted) == _normalize_prose(golden):
+        return "format_drift"
+    return "value_mismatch"
+
+
 def _compare_leaf(path: str, predicted: Any, golden: Any) -> FieldComparison:
     if path in DECIMAL_FIELDS:
         bucket = _bucket_decimal(predicted, golden)
+    elif path in PROSE_FIELDS:
+        bucket = _bucket_prose(predicted, golden)
     else:
         bucket = "match" if predicted == golden else "value_mismatch"
     return FieldComparison(path=path, bucket=bucket, predicted=predicted, golden=golden)
@@ -138,6 +180,14 @@ def _compare_line(p_line: dict, g_line: dict) -> tuple[FieldComparison, ...]:
     return tuple(leaves)
 
 
+def _bucket_by_key(lines: list[dict]) -> dict[LineKey, list[dict]]:
+    """Group lines by composite key, preserving source order within each bucket."""
+    buckets: dict[LineKey, list[dict]] = defaultdict(list)
+    for line in lines:
+        buckets[_line_key(line)].append(line)
+    return buckets
+
+
 def compare(predicted: dict, golden: dict, fixture: str) -> FixtureResult:
     """Compare a predicted Quote dict against its golden.
 
@@ -154,16 +204,24 @@ def compare(predicted: dict, golden: dict, fixture: str) -> FixtureResult:
     )
     p_lines: list[dict] = predicted.get("line_items") or []
     g_lines: list[dict] = golden.get("line_items") or []
-    p_by_key = {_line_key(line): line for line in p_lines}
-    g_by_key = {_line_key(line): line for line in g_lines}
-    matched = p_by_key.keys() & g_by_key.keys()
-    matched_lines = tuple(_compare_line(p_by_key[k], g_by_key[k]) for k in matched)
+    p_buckets = _bucket_by_key(p_lines)
+    g_buckets = _bucket_by_key(g_lines)
+    matched_lines: list[tuple[FieldComparison, ...]] = []
+    only_predicted = 0
+    only_golden = 0
+    for key in p_buckets.keys() | g_buckets.keys():
+        ps = p_buckets.get(key, [])
+        gs = g_buckets.get(key, [])
+        pair_count = min(len(ps), len(gs))
+        matched_lines.extend(_compare_line(ps[i], gs[i]) for i in range(pair_count))
+        only_predicted += len(ps) - pair_count
+        only_golden += len(gs) - pair_count
     return FixtureResult(
         fixture=fixture,
         quote_fields=quote_fields,
-        matched_lines=matched_lines,
-        only_predicted=len(p_by_key.keys() - g_by_key.keys()),
-        only_golden=len(g_by_key.keys() - p_by_key.keys()),
+        matched_lines=tuple(matched_lines),
+        only_predicted=only_predicted,
+        only_golden=only_golden,
         line_count_predicted=len(p_lines),
         line_count_golden=len(g_lines),
     )
