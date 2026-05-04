@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TierPrice(BaseModel):
@@ -90,3 +91,54 @@ class Quote(BaseModel):
     raw_notes: str | None = Field(
         None, description="Prose framing or commentary from the source document."
     )
+
+
+class Category(StrEnum):
+    """Inventory product category. Closed set; CSV rows outside this set fail to load."""
+
+    BEARINGS_DRIVE = "bearings_drive"
+    COVER_CROP_SEED = "cover_crop_seed"
+    FERTILIZER = "fertilizer"
+    HARDWARE_MRO = "hardware_mro"
+    PACKAGING = "packaging"
+    SOIL_AMENDMENT = "soil_amendment"
+
+
+class UoM(StrEnum):
+    """Canonical unit of measure (lowercase). Same set as `QuoteLineItem.uom`."""
+
+    KG = "kg"
+    LB = "lb"
+    OZ = "oz"
+    GAL = "gal"
+    L = "l"
+    EACH = "each"
+    CASE = "case"
+
+
+class Product(BaseModel):
+    """Inventory master row, post-load.
+
+    v1 schema is denormalized — last_paid_*, on_hand_qty, reorder_point, and lead_time_days
+    collapse what an ERP would split into separate products / price_history /
+    inventory_levels tables.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    sku: str
+    description: str
+    category: Category
+    uom: UoM
+    pack_size: str | None = None
+    preferred_supplier_name: str
+    last_paid_unit_price: Decimal
+    last_paid_currency: str | None = Field(
+        None,
+        description="ISO currency code as recorded on the last paid invoice. None when the "
+        "invoice was symbol-only or the product has no purchase history.",
+    )
+    last_paid_date: date
+    reorder_point: int
+    on_hand_qty: int
+    lead_time_days: int

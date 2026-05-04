@@ -422,3 +422,30 @@ Three exception signals baked in by design (worth knowing about as match logic l
 v1 schema is denormalized — `last_paid_*` and `on_hand_qty` / `reorder_point` / `lead_time_days` collapse what an ERP would split into `products` / `price_history` / `inventory_levels` tables. Explicit v1 simplification; production split named in the README design-decisions section.
 
 **Plan from here.** Product Pydantic model + CSV loader (in-memory `dict[str, Product]`) → state types (`QuoteWorkflowState`, `MatchResult`, `Exception_`) → hand-authored LangGraph extract subgraph (`extract_node` + `ToolNode` + `should_continue`; speak-in-primitives, not `create_react_agent`) → concept-mapping doc at `docs/from_primitives_to_langgraph.md` → stub match/flag/approval nodes → compile with `MemorySaver` + `interrupt_before=["approval_node"]` → end-to-end run on one fixture. Real match/flag logic, eval harness wrapped around graph runs, Supabase migration, FastAPI HITL endpoint follow as pace allows — ordered next-steps, not hard-scheduled to days.
+
+## 2026-05-04 — Day 2 (Product model + inventory loader)
+
+`Product` Pydantic model and `load_products()` landed. 146-row real CSV loads clean; 7 tests pin the loader behavior.
+
+**Schema additions in `src/procure_agent/schemas.py`:**
+- `Category` StrEnum — closed set of the six categories present in `data/inventory/inventory.csv` (bearings_drive, cover_crop_seed, fertilizer, hardware_mro, packaging, soil_amendment). Adding a category later requires a code change; that's a feature for v1, since it catches typos at load time.
+- `UoM` StrEnum — same canonical set the prompt teaches (`kg, lb, oz, gal, l, each, case`). Inventory only exercises 5 of 7; the other 2 stay reserved so `Product.uom` and `QuoteLineItem.uom` align if `QuoteLineItem.uom` is later retrofitted.
+- `Product` BaseModel, `frozen=True`. Fields mirror the CSV columns 1:1; `pack_size` and `last_paid_currency` optional, everything else required.
+
+**Loader (`src/procure_agent/inventory.py`):**
+- `DEFAULT_INVENTORY_PATH` resolved relative to the package file (not `cwd`) so the loader works regardless of where pytest / the agent is invoked.
+- `_clean()` collapses empty CSV cells to `None` before Pydantic validation. Required fields with empty cells fail validation cleanly (None into non-Optional `str` raises ValidationError) — no hand-rolled "missing column" handling needed.
+- Returns `dict[str, Product]` keyed by SKU. No duplicate-SKU check; the inventory CSV is checked-in and validated at authoring (build-log entry above this one names "unique SKUs" as a load-time invariant). If duplicates ever appear, the dict-comprehension silently overwrites — would surface as a row-count mismatch in the smoke test.
+
+**Tests (`tests/test_inventory.py`, 7 passing):**
+- `test_real_csv_loads_clean` — round-trips all 146 rows. The high-value smoke check; if any row goes off-spec (unknown category, malformed Decimal, bad date), this fails.
+- `test_anchor_sku_matches_source_row` — exact-value pin on AL101 across every column. Cheap regression cover for type coercion (Decimal/date/int).
+- `test_substitution_anchor_preserved` — `KMEAL-44` absent, `KMEAL-50` present. Build-log invariant for the NutriGrow substitution exception case.
+- Edge cases: empty currency → None, unknown category fails, unknown UoM fails, default path resolves.
+
+**Decisions worth keeping:**
+- StrEnum chosen for `Category` and `UoM` over plain str. Catches data drift at load time (matches the global "StrEnum over string literals for constrained choices" rule). `QuoteLineItem.uom` stays plain `str` for now — retrofitting it to `UoM` would tighten extraction validation (non-canonical UoMs would crash extraction rather than pass through), which is a behavior change worth a separate conversation.
+- `Product` is `frozen=True` since it's master data — once loaded it doesn't mutate. `Quote` / `QuoteLineItem` stay mutable since downstream nodes will attach match results.
+- Loader is a function, not a class. No caching; v1 reads the CSV on every call. Caching moves to the LangGraph state when match logic lands.
+
+**Next:** state types (`QuoteWorkflowState`, `MatchResult`, `Exception_`) and the hand-authored extract subgraph. State types are scaffolding; subgraph node bodies are the user's to write per the working agreement.
