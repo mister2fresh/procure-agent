@@ -358,3 +358,54 @@ Both products grepped clean against the eval corpus. The demo's role is concrete
 **Bucket C count after this session:** 30 mismatches (32 prior − 2 from Quote 07 golden flip). 4 of those 30 are the Meridian + Pacific pack-noun cases targeted by the principle reframe + demo enrichment.
 
 **Next:** harness re-run to see what moves on Meridian + Pacific. Watch for (a) Trigger 1 firing on `"X per bale"` shape (Meridian), (b) Trigger 3 firing on multi-dim mid-description size + UoM-column noun (Pacific), (c) no regression on the 10+ fixtures where pack-noun rules already worked. If the reframe lands, move to currency over-default (next class by count) or substantive `raw_notes` paraphrasing (next class by spread).
+
+## 2026-05-04 — Day 2 (continued: prompt sweep + currency salience regression)
+
+Took the remaining drift through a coordinated prompt sweep. Result: **95.5% → 98.0% field-match (749/784 → 768/784, +19 fields).** One regression caught and fixed mid-sweep.
+
+**Per-fixture inspection of the 35 baseline mismatches (artifact `evals/runs/20260504T170146Z.json`) regrouped them into 5 actionable shapes:**
+
+- **Pack_size product-identity over-fire (10 fields, ~6 lines).** Rule 1 was lifting any "packaging noun in description" into pack_size, but the noun is sometimes the product itself (drum *liner* sold as a liner, *drum pump* a pump for drums, *poly tote* sold by-the-tote). Lift broke product names and produced phantom pack_sizes. Rule 4 (measurement-only + canonical UoM → pack_size null) was right but didn't say "and description stays verbatim" — model was stripping `"1 gallon"` anyway.
+- **Density modifier dropped (2-3).** `"compressed"` not in the rule's modifier list (only `fluffed` was named).
+- **Goldens-are-wrong on `50#` (3).** Per the locked extraction-normalizes decision, `50#` → `50 lb` is canonical; three terragreen goldens kept the source `#` shorthand.
+- **Description case (1).** `"food-grade"` source-cased, model title-cased to `"Food-grade"`. No explicit "preserve casing" clause on description.
+- **line.notes scope drift in informal email (4-5).** terragreen email — model lifted prose fragments ("In stock now.", "Might be able to do better...") into per-line notes; goldens kept them in raw_notes. The rule said "structurally attached to a single line" but didn't address email-prose ambiguity directly.
+
+Plus 8 raw_notes mismatches (preamble drops, markdown variance) — flagged lowest-ROI, deferred.
+
+**Prompt edits (`prompts.py`).** Single coordinated edit covering 4 of the 5 classes:
+- Added a top-level `description` bullet that names verbatim-from-source as the rule and lists casing/punctuation/word-order preservation. Made strip-spans-only-when-rule-fires explicit (closes the "Multi-purpose lubricant, 1 gallon" hole and the case-drift on `"food-grade"`).
+- Pack_size Rule 1: added `compressed` and `loose` next to `fluffed` in the density-modifier list. Added a **counter-rule for product-identity nouns** with the "would removing the noun phrase break the product name?" test and 6 archetypal examples (`barrel funnel`, `pail dolly`, `drum cradle`, `bag sealer`, `case opener`, `bottle filler` — all grepped clean against `data/synthetic_quotes/`).
+- Pack_size Rule 4: appended "**and description stays verbatim** (do not strip the measurement)" to make the no-strip behavior explicit.
+- Notes rule: added an "Informal email bodies" sub-clause — default `line.notes: null` for unstructured email prose; only populate when source uses an explicit per-line marker (`Lead:` / `Status:` / per-line bullet).
+
+**Goldens fix.** Replaced `"pack_size": "50# bag"` × 3 with `"50 lb bag"` in `quote_terragreen_email_2026-04-23.expected.json`.
+
+**Contamination audit caught corpus-verbatim examples in my own draft AND pre-existing in the prompt.** First draft of the counter-rule used `"poly drum liner"`, `"drum pump"`, `"poly tote, 275-gal IBC"`, `"2.2 cu ft compressed bale"` — all verbatim from the eval set (quote_09, quote_12, quote_07). User flagged before write. Re-checked all proposed examples via `rg --no-ignore -i "<term>" data/synthetic_quotes/` — replaced with synthetic equivalents, all grepped clean. **Also caught two pre-existing leaks in the same passage:** `"55-gal drum"` and `"Multi-purpose lubricant, 1 gallon"` were already in the prompt and both verbatim from the corpus (quote_11, quote_meridian). Swapped to `"200-l drum"` / `"Industrial cleaner, 5 liters"` — synthetic, grepped clean.
+
+**Failure-mode lesson — contamination audit needs to cover *existing* prompt content, not just new edits.** Prior session already caught new-example leaks; this session shows old-example leaks survive across editing rounds because the grep habit only triggered on additions. Worth a periodic full-prompt sweep against `data/synthetic_quotes/` to catch latent leakage. The prompt itself is small enough that this is cheap.
+
+**Currency salience regression — 0 → 8 mismatches on `quote_precision_bearings`.** Post-edit harness showed 96.4% net (above baseline despite the regression). Investigation: 8 of 8 lines in precision_bearings predicted `"USD"` despite source containing only `$` symbols and no ISO code (Greenville SC supplier, Reno NV ship-to). Three consecutive single-fixture re-runs all reproduced — not Haiku stochasticity, real prompt regression. The original currency rule's wording (*"Do not default to USD when no ISO code is stated"*) had previously held compliance; my edit lengthened the field-specific list above it, pushing currency further down and degrading attention.
+
+**Failure-mode lesson — prompt edits redistribute attention across the whole rule list, not just where you edited.** A localized fix for class A can silently destabilize an unrelated class B that was previously holding by a thin margin. Compliance on long lists is fragile. Mitigation going forward: any harness sweep after a prompt edit needs to read the *full* per-field breakdown, not just the targeted classes — a regression elsewhere is a signal that the edit consumed attention budget.
+
+**Currency rule rewrite.** Restructured the bullet to make the default explicit and the prohibition absolute: leads with *"ISO code only — emit `USD`/`EUR`/`CAD`, or `null`. **The default is `null`.**"* Then enumerates the only triggers that populate (ISO header, ISO footer, ISO subtotal, inline currency name). Then an absolute-language tail: *"**Never infer currency from supplier address, area code, state name, ZIP code, or country of operation** ... This rule is absolute; do not override it based on context plausibility."* Three re-runs of precision_bearings all clean (1 mis, raw_notes only — pre-existing).
+
+**Final harness (artifact `evals/runs/20260504T174213Z.json`):** 768/784 (98.0%). 0 format_drift, 16 value_mismatch.
+
+Per-field deltas vs baseline:
+- `description` 10 → 2 (−8)
+- `pack_size` 11 → 5 (−6)
+- `notes` (line) 5 → 1 (−4)
+- `raw_notes` 8 → 7 (−1)
+- `currency` 0 → 0 (regression caught + fixed)
+- `shipping_terms` 1 → 1 (unchanged)
+
+Three fixtures now perfect (`02_aloe_corp_prose_email`, `quote_10`, `quote_11`). `quote_precision_bearings` returned to 1 mis (raw_notes). `quote_terragreen_email` improved 7 → 4 from `50#` golden fix + line.notes email-scope clause.
+
+**Held drift after this session (16 mismatches):**
+- `raw_notes` 7 — preamble drops, markdown bold variance, structural rephrasing. Lowest ROI; needs comparator semantic-equivalence work or per-fixture golden audits.
+- `pack_size` 5 — word-order/canonical-form variants (`drum (55 gal)` vs `55 gal drum`, `compressed bale, 3.8 cu ft` vs `3.8 cu ft compressed bale`). Comparator territory more than prompt territory.
+- `description` 2, `notes` 1, `shipping_terms` 1 — small singletons, mostly word-order or scope edge cases.
+
+**Next:** the easy wins are gone. Remaining classes need either (a) comparator semantic-equivalence for prose fields and pack_size canonicalization, or (b) per-fixture golden audits — neither cheap. Worth weighing against shipping the LangGraph node-body work the harness was built to support.
