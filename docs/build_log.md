@@ -257,3 +257,43 @@ Round 2 (after prompt + golden edits): 2/8 byte-clean (01_aloe, 03_rootwise). 02
 - Eval harness is the next big thing — every diff in this sweep was a manual `jq | diff`. A field-aware comparator that treats prose `\n` vs `\n\n` and case-insensitive description matches as warnings rather than failures would have flagged "real" drift much faster.
 
 **Sequence note:** Three rounds of agent runs across 8 fixtures used ~16 API calls and surfaced enough signal for three convention decisions, four mechanical golden fixes, and four prompt-clarification candidates. The "run-then-diff" loop continues to outperform what a harness-only run would surface, but is starting to bump up against rate limits — one Precision retry needed a 60s cooldown when 8 fixtures fired in parallel hit the 30k input-tokens/min cap. Sequential runs would dodge this; parallel + retry-on-429 is fine for now.
+
+## 2026-05-04 — Day 2 (rule A carve-out + substitution-SKU prompt edits, validation sweep)
+
+Picked the two highest-confidence prompt edits from the four candidates parked last session and held off on the other two pending harness signal.
+
+**Prompt edits in `src/procure_agent/prompts.py`:**
+1. **Rule A carve-out (`line.notes` rule)**: appended "**This rule scopes `line.notes` only.** Structured fields (`min_order_qty`, `payment_terms`, `shipping_terms`, `valid_through`, etc.) still extract from notes-section prose when stated there — the prohibition is on lifting prose into per-line `notes`, not on extracting structured values regardless of source location." Targets the Meridian MOQ regression where rule A had collapsed structured-field extraction along with line.notes lifting.
+2. **Substitution-aware SKU semantics (SKU fields rule)**: appended a substitution case enumerating triggers (`substituted`, `proposed substitute`, `we suggest`, `we recommend X instead of Y`, `your RFQ specified X`) with explicit "do not overwrite `requested_sku` with the substitute." Targets NutriGrow KMEAL where round 2 had `requested_sku=KMEAL-44` (the substitute) instead of `KMEAL-50` (what buyer asked for).
+
+**Held for later (post-harness signal):**
+- Verbatim raw_notes hardening — the prior session itself flagged ambiguity on whether this belongs at extraction or downstream. A field-aware comparator may absorb the prose-paraphrase noise without prompt edits.
+- Rule B trigger 1 / column-noun fold few-shot — single-fixture signal (STRAP-PP-58) wasn't enough to pay a few-shot slot.
+
+**Validation sweep (8 batch-1 fixtures, parallel, one cooldown retry on Meridian/Terragreen for the 429):**
+
+Both targeted edits landed cleanly:
+- **Edit #1 worked.** Meridian MOQs all match golden (L1=20, L2=20, L6=10, others null). The carve-out language successfully prevented MOQ extraction from being suppressed by rule A.
+- **Edit #4 worked.** NutriGrow line 1: `requested_sku=KMEAL-50, supplier_sku=KMEAL-44` — exactly the golden.
+
+Per-fixture state post-edits: 2/8 byte-clean (01_aloe, 03_rootwise), same as round 2 last session. 02_aloe down to 1 cosmetic diff (`food-grade` casing). Six fixtures with various drift; classes summarized below.
+
+**Two golden artifacts surfaced and fixed in `quote_meridian_supply_2026-04-24.expected.json`:**
+- `tier_prices` had been hand-written with single-line dicts (`{"min_qty": "100", "unit_price": "0.32"}`); agent emits `model_dump_json(indent=2)` multi-line. Reformatted golden to match the Pydantic serializer.
+- `raw_notes` had stripped `**bold**` markdown markers from the source; agent verbatim correctly preserved them. Restored the markers in golden. Source is `.md`, so verbatim wins.
+
+After golden fix, Meridian's only real drift is one TWINE-NAT-9K line: agent left `"9000 ft per bale"` in description; golden has it lifted to `pack_size`. Rule B trigger 1 (packaging noun in description → lift). Same drift class as Pacific STRAP-PP-58. Two-fixture signal now — would justify the few-shot slot if it persists across the harness.
+
+**Precision currency was variance, not regression.** First run had `currency: "USD"` on all 8 lines (source has bare `$` only). Re-run produced `currency: null` matching golden. The "do not default to USD" rule is robust; first run was Sonnet noise.
+
+**Real remaining drift classes (post-edits, post-golden-fix):**
+
+1. **Rule B trigger 1 weak compliance** (Pacific STRAP, Meridian TWINE) — packaging-noun-in-description fold not firing reliably. Held edit #3 territory.
+2. **raw_notes paraphrasing** (Pacific `\n\n`→`\n` separator, Terragreen content-stripped, Precision paraphrased, NutriGrow paraphrased) — held edit #2 territory; multiple shapes of the same class.
+3. **Rule A loose on non-structured lifting** — edit #1 carved out structured fields, but the underlying "don't lift global notes prose" rule still has weak compliance for non-structured lifts. Surface forms: Terragreen lifted 3 strings into `line.notes` ("Cover crop is in stock now", "Availability to confirm…", "Supplier may be able to do better…"); Precision lifted "carton of 4" prose into `pack_size` on lines 5/6. The carve-out edit didn't tighten the prohibition itself, only scoped it.
+4. **Pacific GST/HST line dropped from raw_notes** — rule C says header admin metadata stays, agent dropped it. Possible single-fixture noise; recheck after harness.
+5. **NutriGrow line 1 description handling** — agent split off `"44 lb bag"` to pack_size and stripped `(substituted — see notes)` parenthetical; golden keeps both inline. The build log already noted this is a defensible-either-way case; not a clear win for a rule.
+
+**Failure-mode observation worth keeping:** **Restrictive rules with carve-outs reduce specific regressions but don't strengthen the underlying prohibition.** Edit #1 fixed MOQs (the structured-field carve-out clause). It did not fix Terragreen's 3 line.notes lifts or Precision's pack_size lift from prose — those are exactly the prohibition rule A was intended to enforce. Implication: the model's "lift commentary near a line item" instinct is strong; explicit carve-outs scope but don't suppress it. May need an explicit anti-pattern in the few-shot, or accept that the harness comparator handles this drift class.
+
+**Next:** harness wiring is the next big step. Manual diffing has now twice surfaced the same drift classes; further sweeps will not surface new rules — only more instances of the held drift. Field-aware comparator (numeric Decimal equality, prose-whitespace tolerance, raw_notes content-presence rather than verbatim) will let us distinguish "real new drift" from "known cosmetic noise" in seconds rather than minutes-of-manual-eyeballing per fixture.
