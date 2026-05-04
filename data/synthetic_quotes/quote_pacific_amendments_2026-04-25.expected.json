@@ -74,8 +74,8 @@
     {
       "requested_sku": "PEAT-BALE-3.8",
       "supplier_sku": "PEAT-BALE-3.8",
-      "description": "Sphagnum Peat Moss, compressed bale",
-      "pack_size": "3.8 cu ft",
+      "description": "Sphagnum Peat Moss",
+      "pack_size": "compressed bale, 3.8 cu ft",
       "quantity": "80",
       "uom": "each",
       "unit_price": "24.50",
@@ -100,8 +100,8 @@
     {
       "requested_sku": "STRAP-PP-58",
       "supplier_sku": "STRAP-PP-58",
-      "description": "Polypropylene Strapping, 5/8\" x 9000 ft, machine grade",
-      "pack_size": null,
+      "description": "Polypropylene Strapping, machine grade",
+      "pack_size": "5/8\" x 9000 ft roll",
       "quantity": "2",
       "uom": "each",
       "unit_price": "142.00",
@@ -113,5 +113,5 @@
   ],
   "payment_terms": "Net 30 from invoice date",
   "shipping_terms": "DAP Reno NV (USA)",
-  "raw_notes": "Lines 5 and 7 quoted in USD per supplier price list - imported items billed in source currency.\n\nFX conversion estimate provided as reference only. Final invoice issued in CAD; customer responsible for currency conversion at payment date.\n\nMycorrhizal inoculant (Line 5) ships separately from Portland OR distribution center.\n\nCrossing fees and US customs brokerage not included."
+  "raw_notes": "Lead Time: 14-21 days ex Vancouver\n\nLines 5 and 7 quoted in USD per supplier price list - imported items billed in source currency.\n\nFX conversion estimate provided as reference only. Final invoice issued in CAD; customer responsible for currency conversion at payment date.\n\nMycorrhizal inoculant (Line 5) ships separately from Portland OR distribution center.\n\nCrossing fees and US customs brokerage not included.\n\nGST/HST: 81472 9038 RT0001"
 }

@@ -4,7 +4,7 @@
   "customer_ref": null,
   "rfq_ref": "NSM-RFQ-0417",
   "issued_date": "2026-04-22",
-  "valid_through": null,
+  "valid_through": "2026-05-22",
   "line_items": [
     {
       "requested_sku": "B-6204-2RS",

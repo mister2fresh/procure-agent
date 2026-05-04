@@ -213,3 +213,47 @@ Why not flip the prompt: signatures are genuinely structured supplier-contact da
 Trigger for revisit: handoff doc §week 3 (Supplier onboarding) annotated with "extract signatures into structured `Contact` here" so the next-workflow-startup pass picks it up automatically.
 
 Header admin metadata (`Salesperson:`, `Freight: TBD`) is the same shape of question but separate — those aren't signature data, they're document-header attribution. Will fall out of the batch-1 sweep when fresh fixtures with similar headers either get goldens that include them or push back on the prompt rule. No standalone decision needed yet.
+
+## 2026-05-03 — Day 1, late evening (batch-1 sweep)
+
+Eight batch-1 fixtures end-to-end (1/2/3 + Pacific / TerraGreen / Meridian / Precision / NutriGrow). Two passes, ~14 API calls. Three convention calls landed (rule A on per-line `notes` scope, rule B reframed for pack_size/UoM independence, rule C on header admin metadata kept). Four golden updates and signature reinstatement in 07/09/11/12.
+
+**Conventions decided this session:**
+
+1. **Rule A — `line.notes` scope.** `line.notes` populates ONLY when the source structurally attaches commentary to a single line: per-line column (`Status: in stock`), sub-bullet under that line, `Lead:` field. Global notes-section prose that *references* line numbers (`"Line 5 ships separately"`, `"MOQ for Lines 1 and 2 is 20"`) stays in `raw_notes` verbatim. Goldens 07/09/Pacific/TerraGreen/Meridian/Precision already match this; Harbor (golden 11) is the precedent for the "structurally per-line" case (Status field under each item).
+
+2. **Rule B — pack_size/UoM independence.** The first cut had a too-broad "canonical UoM = no pack split" carve-out. User flagged the 55-gal-drum-charged-per-gallon counterexample. Reframed: pack_size is the *pack constraint* (the unit you must order in); UoM is *how it is charged*. They are independent and can coexist (`pack_size: "55-gal drum"`, `uom: "gal"`). Triggers, in priority: (1) packaging noun in description → lift verbatim pack phrase to `pack_size`, strip from description; (2) unit-pack form ("case of 12") → lift verbatim; (3) packaging-noun UoM column + size in description and no description noun → combine ("50 lb" + col=BAG → "50 lb bag"). When none fire (canonical UoM column + measurement-only description, no packaging noun, e.g. "1 gallon" + uom GAL), `pack_size` stays null.
+
+3. **Rule C — header admin metadata.** `Salesperson:`, `Freight: TBD`, `Lead Time:`, `GST/HST:` and similar header attribution fields stay in `raw_notes` verbatim, same disposition as signatures. Goldens 07 and Pacific updated to include them. Revisit if/when downstream onboarding workflow wants structured fields for any of them.
+
+**Mechanical golden updates beyond conventions:**
+- Golden 02 `unit_price`: `"300.00"` → `"300"` (preserve source precision; the schema-layer 2dp validator was dropped during batch-1 fixture expansion when Acme's 3-decimal pricing surfaced, but golden 02 still had the padded form).
+- Golden Precision `valid_through`: `null` → `"2026-05-22"` (per the batch-2 derive-on-explicit-math rule applied to "valid for thirty (30) days from the date above").
+- Golden Pacific STRAP-PP-58: `pack_size: null` → `"5/8\" x 9000 ft roll"`, description trimmed.
+- Golden Pacific PEAT-BALE-3.8: `pack_size "3.8 cu ft"` → `"compressed bale, 3.8 cu ft"` (verbatim source order; full pack phrase lifted, description reduced to product name).
+- Goldens 07/09/11/12: signature blocks (and admin metadata for 07) reinstated in `raw_notes` per the now-settled signature-KEEP rule.
+
+**Round 1 vs round 2 results.**
+
+Round 1 (initial sweep, before prompt edits): 1/8 byte-clean (01_aloe). 02_aloe and 03_rootwise had the existing diffs from prior session. Pacific/TerraGreen/Meridian/Precision/NutriGrow each had multi-field drift dominated by per-line `notes` lifting from global notes prose, raw_notes paraphrasing, and currency over-defaulting.
+
+Round 2 (after prompt + golden edits): 2/8 byte-clean (01_aloe, 03_rootwise). 02_aloe down to 2 cosmetic diffs (`food-grade`/`Food-grade` source-casing miss, `\n` vs `\n\n` whitespace). Currency fix held on NutriGrow. Pacific cleared the line.notes drift but introduced new drift on the freshly-aspirated rule 3 fold for STRAP-PP-58 (agent didn't apply). Per-line notes lifting persisted on TerraGreen / Precision (carton-rounding lifted into pack_size), suggesting rule A wording is too easy for the model to interpret as guidance rather than prohibition.
+
+**Failure modes observed worth logging:**
+
+- **Verbatim raw_notes is hard to enforce via prose.** Agent paraphrases multi-paragraph raw_notes content (Precision, NutriGrow, TerraGreen) even though the prompt says verbatim. Looks like the model finds dumping a 6-paragraph block awkward and "cleans it up." Mitigation candidates: stricter wording ("DO NOT paraphrase, summarize, or restructure"), or accept that verbatim-prose extraction is best handled downstream rather than as an extraction-step contract.
+- **Adding a restrictive rule can suppress unrelated structured-field extraction.** Round 1 Meridian had `min_order_qty: "20"` populated correctly from prose. Round 2 (after rule A landed) lost it on three lines — agent appears to have read "don't lift from notes section" as "don't extract from notes section." `min_order_qty` extraction is explicitly allowed by its own rule but the model collapsed both. Worth a carve-out: rule A applies to `line.notes` only; structured-field extraction (min_order_qty, payment_terms, etc.) still applies regardless of source location.
+- **Rule 3 (column-noun fold) has weak compliance.** STRAP-PP-58 source: description "Polypropylene Strapping, 5/8\" x 9000 ft, machine grade", uom column ROLL. Per the rule, "roll" is not in description, so column-noun + size should fold to `pack_size: "5/8\" x 9000 ft roll"`. Agent left it in description in round 2 despite the rule being in the prompt. May need an explicit example in the few-shot.
+- **NutriGrow `requested_sku` semantic miss.** Source: "Your RFQ specified KMEAL-50". Agent put `requested_sku: "KMEAL-44"` (the substitute), golden has `KMEAL-50` (what buyer asked for). The substitution-aware case is genuinely tricky — the schema-level intent is `requested_sku` = what buyer asked for, `supplier_sku` = what supplier offered, and they diverge in the substitution case. Prompt has no explicit handling for substitution. Worth a rule like "in substitution scenarios (`substituted`, `proposed substitute`, `we suggest`), `requested_sku` stays the original buyer SKU; `supplier_sku` is the offered substitute."
+- **NutriGrow KMEAL parenthetical handling.** Source description includes `(substituted — see notes)` parenthetical. Agent moved that into `notes` (and clipped `(substituted — see notes)` from description). Golden keeps the parenthetical in description. Either approach is defensible; not a clear win for a rule yet.
+
+**Follow-up parked for next session:**
+
+- Strengthen rule A's prohibition wording vs. carve out "structured fields still extract regardless of source location" exception (Meridian MOQ regression).
+- Decide whether to add an explicit `pack_size` few-shot example covering the column-noun fold case (STRAP-PP-58 / rule 3 weak compliance).
+- Add a substitution-aware rule for `requested_sku` / `supplier_sku` (NutriGrow).
+- Consider a verbatim raw_notes few-shot example covering a multi-paragraph case to anchor "no paraphrasing."
+- Acme schema gap still parked.
+- Eval harness is the next big thing — every diff in this sweep was a manual `jq | diff`. A field-aware comparator that treats prose `\n` vs `\n\n` and case-insensitive description matches as warnings rather than failures would have flagged "real" drift much faster.
+
+**Sequence note:** Three rounds of agent runs across 8 fixtures used ~16 API calls and surfaced enough signal for three convention decisions, four mechanical golden fixes, and four prompt-clarification candidates. The "run-then-diff" loop continues to outperform what a harness-only run would surface, but is starting to bump up against rate limits — one Precision retry needed a 60s cooldown when 8 fixtures fired in parallel hit the 30k input-tokens/min cap. Sequential runs would dodge this; parallel + retry-on-429 is fine for now.
