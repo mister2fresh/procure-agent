@@ -26,7 +26,7 @@ from procure_agent.schemas import Quote
 
 load_dotenv()
 
-MODEL = "claude-sonnet-4-6"
+MODEL = "claude-haiku-4-5"
 MAX_TOKENS = 4096
 QUOTES_DIR = Path(__file__).resolve().parents[2] / "data" / "synthetic_quotes"
 

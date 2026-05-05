@@ -740,3 +740,33 @@ Wrapped `SYSTEM` in `[{"type": "text", "text": SYSTEM, "cache_control": {"type":
 - Match-tier distribution: 54 supplier_sku_exact, 1 requested_sku_exact, 10 unmatched — no regression on SKU matching.
 
 **Next:** Haiku 4.5 swap as a single-variable change. Today's artifact (`20260505T193415Z.json`) is the Sonnet baseline to diff against. If field-match holds within ~1% on Haiku, commit; otherwise revert. Then Day 5 (FastAPI HITL endpoint + Streamlit demo) starts on the cheaper extraction path.
+
+## 2026-05-05 — Haiku 4.5 swap + customer_ref tightening (locked)
+
+One-line change in `agent.py:29` (`MODEL = "claude-sonnet-4-6"` → `"claude-haiku-4-5"`). `MODEL` is the single source — `graph.py:extract_node` imports it. Eval ran clean, no extraction failures.
+
+**Sonnet → Haiku diff (artifact `20260505T194307Z.json` vs Sonnet baseline `20260505T193415Z.json`):**
+- Field-match: 766/784 (97.7%) → 757/784 (96.6%), -1.1pt.
+- Match-tier counts and line P/R **bit-identical** — routing layer unaffected. All drift is in extraction.
+- Regressions cluster on prose-verbatim fields (`raw_notes`, `description`, `payment_terms`) and two strict-null violations: `customer_ref="2Fresh Ingredients"` on rootwise (golden=None — Haiku put the customer **name** in an ID field), and `pack_size="1 gallon"` on meridian's "Multi-purpose lubricant, 1 gallon" line.
+- Flags: pack_size_drift -2, uom_mismatch +2, others unchanged.
+
+**Customer_ref tightening (the win that stuck).** Added a "**Names are not IDs**" clause to the customer_ref field-spec at `prompts.py:64`: "when the source shows only the buyer's company name (e.g., 'Bill To: <Buyer Name Inc.>') with no alphanumeric account code alongside, emit `null` — customer names are not captured anywhere in this schema." Targeted at the rootwise failure; landed exactly as expected (rootwise 18/19 → 19/19). The semantic is load-bearing for the round-trip: a name in `customer_ref` would silently break downstream PO generation that expects the supplier's stable account ID.
+
+**Pack_size iterations that didn't pan out (worth recording so I don't try them again).** Two attempts on the meridian "1 gallon" / terragreen "1 cy" failures, both regressed:
+1. **Structural inversion** — moved the null fallback to lead with "Default null; lift only when..." and reframed the three rules as exceptions. Haiku read "Lift when packaging noun..." as a stronger trigger and started over-lifting: 12_revised IBC sizes (golden=None) got pulled in, 08 lifted as `"drum (55 gal)"` instead of `"55 gal drum"`, terragreen started lifting `"1 cy"`. Net 754/784 (-3 vs Haiku baseline). Pack_size mis went 5 → 10.
+2. **Surgical reinforcements** — kept original ordering, added IBCs to the saleable-unit counter-rule and a second `"Hydraulic fluid, 1 gallon"` example to the null fallback. Worse: 749/784 (-8 vs baseline). Pack_size mis went to 11; 12_revised cratered to 31/39. Adding rules made Haiku less coherent, not more.
+
+**Lesson.** The original pack_size structure was already tight. Haiku interprets additional inline rules more liberally than Sonnet — adding examples or restructuring the priority order both pulled it toward over-lifting. The meridian/terragreen failures may not be reachable through prompt-tuning alone; they likely need a different angle (a few-shot demo case showing this exact pattern, or accepted as Haiku's noise floor on pack_size).
+
+**Caught one corpus-contamination slip.** First reinforcement pass had `"275-gal IBC"` and `"330-gal IBC"` as counter-rule examples — both verbatim from `quote_12_revised`. Per the prompt-edit checklist memory, the post-edit grep flagged both. Reworded to generic category language before reverting the whole iteration. Reinforces the discipline: run the contamination check **after every edit**, not just once at the end.
+
+**Final state — locked baseline:**
+- Artifact: `evals/runs/20260505T201012Z.json`.
+- Field-match: **760/784 (96.9%)** — beats pre-tightening Haiku baseline by +3, closes Sonnet gap from -9 to -6.
+- Pack_size mis back to 5 (matching pre-tightening Haiku); customer_ref miss eliminated.
+- Match-tier distribution: 54 supplier_sku_exact, 1 requested_sku_exact, 10 unmatched. Routing layer untouched throughout.
+
+**Decision: stick with Haiku.** -0.8pt accuracy vs Sonnet is acceptable for the cost/latency profile of an extraction call. The CLAUDE.md split (Sonnet planner, Haiku extraction) holds.
+
+**Next:** Day 5 — FastAPI HITL approval endpoint + Streamlit demo, on the locked Haiku extraction path.
