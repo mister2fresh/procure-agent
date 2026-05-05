@@ -84,12 +84,44 @@ def should_continue(state: QuoteWorkflowState) -> Literal["tools", "match"]:
 
 
 def match_node(state: QuoteWorkflowState) -> dict:
-    """No-op until match logic lands."""
+    """Resolve each ``state["quote"].line_items`` entry against the product master.
+
+    Cascade per line, short-circuiting at the first hit:
+
+    1. exact ``supplier_sku`` → ``MatchMethod.SUPPLIER_SKU_EXACT``
+    2. exact ``requested_sku`` → ``MatchMethod.REQUESTED_SKU_EXACT``
+    3. fuzzy ``supplier_sku`` → ``MatchMethod.SUPPLIER_SKU_FUZZY``
+    4. fuzzy ``requested_sku`` → ``MatchMethod.REQUESTED_SKU_FUZZY``
+    5. fuzzy ``description``  → ``MatchMethod.DESCRIPTION_FUZZY``
+    6. otherwise              → ``MatchMethod.UNMATCHED`` + an
+       ``ExceptionKind.UNMATCHED`` flag on the result
+
+    Calls into :mod:`procure_agent.db` for the lookups. Returns
+    ``{"matches": [...]}`` — one ``MatchResult`` per line, in the same order.
+    Flag accumulation (price variance, currency, pack/UoM drift) happens in
+    :func:`flag_node`; this node only attaches the UNMATCHED flag.
+    """
     return {}
 
 
 def flag_node(state: QuoteWorkflowState) -> dict:
-    """No-op until flag logic lands."""
+    """Compare each matched product against its quote line and accumulate flags.
+
+    For every ``MatchResult`` in ``state["matches"]`` with a non-None
+    ``matched_sku``, load the canonical product and compare against the
+    corresponding ``QuoteLineItem``. Append flags for:
+
+    - ``PRICE_VARIANCE`` when ``unit_price`` deviates from
+      ``last_paid_unit_price`` by more than the threshold (handoff: 10%).
+    - ``CURRENCY_MISMATCH`` when ``currency`` differs from
+      ``last_paid_currency``.
+    - ``PACK_SIZE_DRIFT`` when ``pack_size`` doesn't normalize to the
+      product's ``pack_size``.
+    - ``UOM_MISMATCH`` when ``uom`` differs from the product's ``uom``.
+
+    Returns ``{"matches": [...]}`` with the enriched list. Unmatched results
+    pass through untouched (their UNMATCHED flag was attached by ``match_node``).
+    """
     return {}
 
 

@@ -55,13 +55,14 @@ def fresh_db_url() -> str:
     return url
 
 
-def test_schema_migrations_records_both_versions(fresh_db_url: str) -> None:
+def test_schema_migrations_records_every_version(fresh_db_url: str) -> None:
     """The runner records every applied version, in order, exactly once."""
+    expected = sorted(p.stem for p in (REPO_ROOT / "migrations").glob("*.sql"))
     with psycopg.connect(fresh_db_url) as conn:
         rows = conn.execute(
             "SELECT version FROM procure_agent.schema_migrations ORDER BY version"
         ).fetchall()
-    assert [r[0] for r in rows] == ["0001_init", "0002_seed_products"]
+    assert [r[0] for r in rows] == expected
 
 
 def test_products_row_count_matches_csv(fresh_db_url: str) -> None:

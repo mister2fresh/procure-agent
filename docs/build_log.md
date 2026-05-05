@@ -531,3 +531,33 @@ Local docker postgres + hand-rolled SQL migrations + DB-as-master for the produc
 - Socket permissions persistence across an OrbStack VM restart not verified — may need a systemd path unit if `chown` doesn't survive.
 
 **Next:** match-node body. Read `quote.line_items[*]`, look up by SKU against `procure_agent.products`, populate `MatchResult` with whatever the schema needs to firm up. First node where the DB earns its keep.
+
+## 2026-05-05 — Day 3 (query layer + match/flag state shape)
+
+psycopg-direct query layer against `procure_agent.products`, pg_trgm enabled with GIN indexes for fuzzy SKU/description match, and `state.py` refactored to firm up `MatchResult` / `Exception_` / the cascade enum. Match/flag node bodies still no-op stubs; their docstrings now spell out the contract. Full suite at 34 passing (8 new DB tests).
+
+**Files landed.**
+- `pyproject.toml` — `sqlalchemy` removed (unused; psycopg-direct picked for the query layer).
+- `migrations/0003_pg_trgm.sql` — `CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public`, plus GIN trigram indexes on `products.sku` and `products.description`.
+- `src/procure_agent/db.py` — `connect()` context manager (reads `DATABASE_URL`, sets `row_factory=dict_row` and `search_path=procure_agent,public`), `get_product()`, `find_products_by_sku_similarity()`, `find_products_by_description_similarity()`. All return `Product` instances; the trigram `score` column is silently dropped by Pydantic's default `extra='ignore'`.
+- `src/procure_agent/state.py` — added `MatchMethod` (StrEnum, 6 values: one per cascade rung + `unmatched`) and `ExceptionKind` (StrEnum: `unmatched`, `price_variance`, `currency_mismatch`, `pack_size_drift`, `uom_mismatch`). `Exception_` is now `(kind, detail)`; `MatchResult` is now `(line_index, matched_sku, match_method, confidence, flags)`. `QuoteWorkflowState.exceptions` removed — flags live on each `MatchResult`.
+- `src/procure_agent/graph.py` — `match_node` / `flag_node` docstrings spell out the cascade order, short-circuit semantics, and the four flag types so the contract is in the file.
+- `tests/test_db.py` (8 passing) — exact lookup hit + miss; SKU similarity recovers `STRAPPP58` → `STRAP-PP-58`; ranks exact match first; respects `limit`; garbage input returns empty; description similarity finds `STRAP-PP-58` from "polypropylene strapping" and ranks `AL101` first for "Aloe vera extract food grade".
+- `tests/test_migrations.py` — expected version list derived from disk (`migrations/*.sql` stems) so adding a migration no longer breaks an unrelated test.
+
+**Decisions worth keeping.**
+- **(A) psycopg-direct over SQLAlchemy core.** Three query shapes today (exact lookup, fuzzy SKU, fuzzy description), no joins until `suppliers` / `purchase_orders` land. ORM would add a parallel `ProductORM` model that converts to the existing `Product` Pydantic for no gain; query builder doesn't pay for itself at this query count. Same SQL runs unchanged against Supabase. Can revisit if join count climbs.
+- **(B) `pg_trgm` installed in `public`, not `procure_agent`.** Explicit `WITH SCHEMA public` so the `similarity()` function and `%` operator resolve regardless of search_path. Supabase pre-installs it in `extensions`; the `IF NOT EXISTS` short-circuits there and no-ops.
+- **(C) GIN trigram indexes on both `products.sku` and `products.description`.** Both columns are queried by similarity in the cascade; without GIN, `similarity()` is a sequential scan. Cheap insurance even at 146 rows; mandatory if the catalog grows.
+- **(D) Flags-on-MatchResult, not flat exceptions list.** A flag without a match it varies from has no domain meaning — the data is naturally hierarchical. Removes `line_index` from `Exception_` (one fewer field to keep in sync), and "show every flag on this quote" is one flatten: `[f for m in match_results for f in m.flags]`. Quote-level flags (header drift, supplier address mismatch) are out of scope until supplier-onboarding ships.
+- **(E) Short-circuit cascade with granular `MatchMethod`.** Six values, one per cascade rung: `supplier_sku_exact` → `requested_sku_exact` → `supplier_sku_fuzzy` → `requested_sku_fuzzy` → `description_fuzzy` → `unmatched`. Eval and HITL can distinguish a strong exact-SKU match from a weak description-fuzzy hit. Supplier_sku precedes requested_sku because a supplier quote's supplier_sku is what they actually offered to sell.
+- **(F) `match_node` attaches the `UNMATCHED` flag itself; `flag_node` only handles divergence flags (price/currency/pack/UoM).** Keeps each node's contract narrow: match decides identity, flag decides divergence. Both return `{"matches": [...]}` so flag's enriched list replaces match's via the default LangGraph reducer.
+- **(G) `test_migrations` derives expected versions from disk.** The first cut hard-coded `["0001_init", "0002_seed_products"]`; adding `0003_pg_trgm` broke the test for unrelated reasons. Reading `migrations/*.sql` stems makes the assertion durable across future migrations.
+
+**Held drift / not done.**
+- `match_node` and `flag_node` still no-op stubs returning `{}`. Docstrings firm; bodies land next session.
+- pg_trgm `threshold=0.3` default in `db.py` is a guess. Tune against the synthetic-quote corpus once the eval harness wraps graph runs.
+- `confidence` semantics: 1.0 for exact, trigram score for fuzzy, 0.0 for unmatched. May want to migrate unmatched to `None` once the HITL UI exists and "no confidence" needs to render distinctly from "zero confidence."
+- pack_size / UoM normalization rules for the flag node not picked yet — open question is whether to canonicalize at match time (keep DB and quote in same shape) or at flag time (compare-with-tolerance like the eval comparator does for prose).
+
+**Next:** `match_node` body — straight cascade calling into `db.py`. Then a couple of integration tests in `tests/test_graph.py` exercising exact / fuzzy / unmatched paths. Then `flag_node` body for the four comparison flags.
