@@ -129,7 +129,13 @@ def run(user_msg: str, max_turns: int = 10) -> Message:
         resp = client.messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
-            system=SYSTEM,
+            system=[
+                {
+                    "type": "text",
+                    "text": SYSTEM,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
             tools=TOOLS,
             messages=messages,
         )

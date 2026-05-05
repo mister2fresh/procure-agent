@@ -685,3 +685,58 @@ The `same_pack_size` predicate's tokenizer (lowercase + digit-letter split + whi
 - `evals/run.py` doesn't compute extraction-vs-match correlation (e.g., when did extraction value_mismatch *cause* a downstream match/flag failure?). Today's analysis was manual via the artifact JSON. If we run the eval more than 2-3 more times, worth adding a "joint failures" report.
 
 **Next:** FastAPI HITL endpoint + Streamlit demo (Day 5). The eval harness is the observability tool to run before/after each tuning change; today's artifact is the baseline to diff against.
+
+## 2026-05-05 — Tune-before-Day-5: pg_trgm threshold (description) 0.3 → 0.45
+
+Took fix (a) from yesterday's description_fuzzy noise diagnosis: bumped `find_products_by_description_similarity` default threshold to 0.45 in `src/procure_agent/db.py`. Left the SKU threshold at 0.3 (cascade had zero fuzzy SKU hits in the corpus, so re-tuning it would be speculative). Re-ran the full eval; new artifact `evals/runs/20260505T183700Z.json`.
+
+**Diff vs. baseline (`20260505T181616Z.json`).**
+- Cascade: `description_fuzzy=3 → 0`, `unmatched=7 → 10`. The 3 wrong matches (LINER-DRUM-CL ×2 in `09_date_formats`, SULK-50 in `11_leadtime_prose`) all sat below 0.45 (0.333 / 0.362 / 0.404) and now correctly land in UNMATCHED.
+- Flags: `price_variance 45 → 42` (the bogus 92.3% / 94.9% / 53.8% drifts gone), `pack_size_drift 27 → 25` (the asymmetric-Nones on the LINER-DRUM-CL hits gone), `currency_mismatch 52 → 49` (the `None vs USD` flags on the same 3 lines gone — these would have been killed by fix (b) anyway).
+- `unmatched` flag count: `7 → 10`, exactly tracking the cascade movement.
+- No regression on `supplier_sku_exact=54` or `requested_sku_exact=1`. Field-match holds at 98.0%.
+
+**What this means for Day 5.** UNMATCHED is now the only signal carrying the "we didn't find this product" decision — no low-confidence fuzzy hits leaking through to the flag layer with bogus divergence. The HITL queue should render those 10 lines as "did you mean / create new SKU" prompts, not as "review this 95% price drift on a product we're not actually sure we matched."
+
+**Next (still pending user):** the bare-`$` → `USD` extraction prompt edit. After that, today's artifact gets superseded by the post-prompt-edit run as the new pre-Day-5 baseline.
+
+## 2026-05-05 — Tune-before-Day-5 (cont.): currency rule pivot, flag gating, prompt caching → locked baseline
+
+Three changes landed in sequence. New artifact `evals/runs/20260505T193415Z.json` is the locked pre-Day-5 baseline.
+
+**(1) Currency rule pivot — strict-null → application-default-USD.**
+
+Originally drafted a strict rule (bare `$` → USD; no symbol → null) with priorities 1-4 covering ISO codes, compound symbols, bare `$`, and bare `€`/`£`/`¥`. First post-edit eval revealed extraction was over-predicting USD on no-symbol fixtures (q08, q10 CSVs of plain numbers; terragreen ALFM-50 with siblings using `$`) — 14 lines diverged from strict-rule goldens, dragging field-match to 95.8%.
+
+Pressed pause and reframed: this tool serves US-anchored procurement workflows. The strict rule was over-engineered against a deployment context that doesn't exist (truly currency-ambiguous SMB workflows). The "anti-inference" muscle was specifically about *supplier metadata* (address/zip/area-code), which is sound and stays. What's different is *application-context defaults* — when the document is silent, USD is the correct default for a US tool.
+
+Final rule: `Default is "USD"`, override only on explicit ISO code, compound-symbol token (`C$`/`A$`/`HK$` etc.), or bare `€`/`£`/`¥` (which emit `null`). Anti-supplier-metadata language preserved — "A Toronto letterhead with no `$`, no compound-symbol token, and no `CAD` mention → `USD` per the application default. If the supplier meant CAD, they would say so."
+
+The principle change worth recording: **extraction defaults are application-context, not source inference.** This is the same kind of decision a system makes when it picks a default timezone or locale. Inferring from supplier metadata is still forbidden — that's the actual landmine. Everything in `data/synthetic_quotes/` got walked fixture-by-fixture; goldens now reflect the new rule.
+
+**(2) Flag-layer gate on `currency_mismatch`.**
+
+`graph.py:flag_node` now requires *both* `line.currency` and `product.last_paid_currency` to be non-null before firing `CURRENCY_MISMATCH`. Before this, `None vs USD` (catalog gap or extraction silence) fired bogus flags identical to real CAD/USD divergence. The gate makes the flag signal-only.
+
+The **separation of concerns** this earned is what's worth recording for the README design-decisions section: extraction stays principled (null = source genuinely silent — happens only on bare `€`/`£`/`¥` now); flag layer stays signal-only (no flag when either side is unknown — there's nothing to compare). Ambiguity is encoded in the field value, not as a divergence flag.
+
+Symmetric handling of the four cases:
+- `quote=USD, last_paid=USD` → no flag (clean match)
+- `quote=CAD, last_paid=USD` → flag (real divergence)
+- `quote=null, last_paid=USD` → no flag (gated; source ambiguous)
+- `quote=USD, last_paid=null` → no flag (gated; catalog gap)
+
+Two new tests in `test_graph.py` cover the asymmetric null cases.
+
+**(3) Prompt caching on the system prompt.**
+
+Wrapped `SYSTEM` in `[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}]` in both `agent.py` and `graph.py:extract_node`. Verified working: `cache_read_input_tokens: 4507` on consecutive calls, `input_tokens: 325` (just the user message + tools structure billed at full rate). Effective cut: ~85% on system-prompt input cost per call. Across a 14-fixture eval run, this is the single biggest cost lever short of swapping models.
+
+**Locked baseline diff vs. original Day-4 baseline:**
+- Field-match: 98.0% → **97.7%** (within Sonnet stochasticity band; per-field breakdown shows `line_items.*.currency` gone entirely from failures, replaced by the usual description/notes/raw_notes flux).
+- `currency_mismatch` flags: 52 → **5** (47 noise eliminated; remaining 5 are the legit pacific_amendments CAD lines + 1 nutrigrow USD-vs-catalog-CAD).
+- `description_fuzzy` cascade hits: 3 (all wrong) → **0** (all 3 now correctly UNMATCHED).
+- `unmatched` cascade hits: 7 → 10 (the 3 wrong fuzzy matches moved here).
+- Match-tier distribution: 54 supplier_sku_exact, 1 requested_sku_exact, 10 unmatched — no regression on SKU matching.
+
+**Next:** Haiku 4.5 swap as a single-variable change. Today's artifact (`20260505T193415Z.json`) is the Sonnet baseline to diff against. If field-match holds within ~1% on Haiku, commit; otherwise revert. Then Day 5 (FastAPI HITL endpoint + Streamlit demo) starts on the cheaper extraction path.

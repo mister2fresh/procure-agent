@@ -14,7 +14,7 @@
       "quantity": "30",
       "uom": "each",
       "unit_price": "46.20",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null
@@ -27,7 +27,7 @@
       "quantity": "24",
       "uom": "each",
       "unit_price": "58.75",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null
@@ -40,7 +40,7 @@
       "quantity": "60",
       "uom": "each",
       "unit_price": "28.40",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null
@@ -53,7 +53,7 @@
       "quantity": "200",
       "uom": "lb",
       "unit_price": "2.85",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null
@@ -66,7 +66,7 @@
       "quantity": "4",
       "uom": "each",
       "unit_price": "315.00",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null
@@ -79,7 +79,7 @@
       "quantity": "50",
       "uom": "each",
       "unit_price": "34.50",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null
@@ -87,5 +87,5 @@
   ],
   "payment_terms": null,
   "shipping_terms": null,
-  "raw_notes": "Pulled this together quick — got most of what you wanted in stock but a couple\nitems I had to check with the warehouse on. Let me know if this works and\nI'll get a formal PO acknowledgment over.\n\nCover crop is in stock now, the worm castings I have to confirm — vendor said\nmaybe 2 weeks but could be sooner. Biochar I might be able to do better on\nprice if you can wait til the next container lands but no promises.\n\nAnyway prices above are good for now, hit me back when you want to lock it in.\n\nDave Korski\nTerraGreen Supply\ncell: (503) 555-0188"
+  "raw_notes": "Pulled this together quick \u2014 got most of what you wanted in stock but a couple\nitems I had to check with the warehouse on. Let me know if this works and\nI'll get a formal PO acknowledgment over.\n\nCover crop is in stock now, the worm castings I have to confirm \u2014 vendor said\nmaybe 2 weeks but could be sooner. Biochar I might be able to do better on\nprice if you can wait til the next container lands but no promises.\n\nAnyway prices above are good for now, hit me back when you want to lock it in.\n\nDave Korski\nTerraGreen Supply\ncell: (503) 555-0188"
 }

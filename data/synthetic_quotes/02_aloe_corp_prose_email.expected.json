@@ -14,7 +14,7 @@
       "quantity": "50",
       "uom": "kg",
       "unit_price": "300",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null

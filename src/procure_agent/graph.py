@@ -57,7 +57,13 @@ def extract_node(state: QuoteWorkflowState) -> dict:
     resp = client.messages.create(
         model=MODEL,
         max_tokens=MAX_TOKENS,
-        system=SYSTEM,
+        system=[
+            {
+                "type": "text",
+                "text": SYSTEM,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
         tools=TOOLS,
         messages=state["messages"],
     )
@@ -207,7 +213,9 @@ def flag_node(state: QuoteWorkflowState) -> dict:
     - ``PRICE_VARIANCE`` when ``unit_price`` deviates from
       ``last_paid_unit_price`` by more than ``PRICE_VARIANCE_THRESHOLD``.
     - ``CURRENCY_MISMATCH`` when ``currency`` differs from
-      ``last_paid_currency``.
+      ``last_paid_currency`` AND both sides are explicitly set. If either side
+      is ``None`` (source ambiguous or catalog gap), no flag — ambiguity is
+      encoded in the field itself, not surfaced as divergence.
     - ``PACK_SIZE_DRIFT`` when ``pack_size`` doesn't agree with the
       product's ``pack_size`` after cosmetic normalization.
     - ``UOM_MISMATCH`` when ``uom`` doesn't agree with the product's ``uom``
@@ -236,7 +244,11 @@ def flag_node(state: QuoteWorkflowState) -> dict:
                         f"from last paid {product.last_paid_unit_price}"
                     ),
                 ))
-            if line.currency != product.last_paid_currency:
+            if (
+                line.currency is not None
+                and product.last_paid_currency is not None
+                and line.currency != product.last_paid_currency
+            ):
                 match.flags.append(Exception_(
                     kind=ExceptionKind.CURRENCY_MISMATCH,
                     detail=(

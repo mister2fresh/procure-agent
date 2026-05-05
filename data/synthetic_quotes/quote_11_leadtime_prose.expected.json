@@ -9,15 +9,15 @@
     {
       "requested_sku": null,
       "supplier_sku": null,
-      "description": "Sodium silicate 38° Bé",
+      "description": "Sodium silicate 38\u00b0 B\u00e9",
       "pack_size": "55-gal drum",
       "quantity": "6",
       "uom": "each",
       "unit_price": "312.00",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
-      "notes": "in stock — can ship today"
+      "notes": "in stock \u2014 can ship today"
     },
     {
       "requested_sku": null,
@@ -27,7 +27,7 @@
       "quantity": "40",
       "uom": "each",
       "unit_price": "54.85",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": "ships in 2 weeks (currently on water from supplier)"
@@ -40,10 +40,10 @@
       "quantity": "200",
       "uom": "each",
       "unit_price": "19.40",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
-      "notes": "8-10 week lead time — must commit by 5/15 to lock the slot"
+      "notes": "8-10 week lead time \u2014 must commit by 5/15 to lock the slot"
     },
     {
       "requested_sku": null,
@@ -53,7 +53,7 @@
       "quantity": "12",
       "uom": "each",
       "unit_price": "98.00",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": "in stock, ready Friday after PO"
@@ -61,5 +61,5 @@
   ],
   "payment_terms": "Net 30",
   "shipping_terms": "FOB origin (Tacoma WA)",
-  "raw_notes": "Lead times and availability vary by item — flagged inline.\n\nManish Kapoor\nHarbor Chemical Co.\nm.kapoor@harborchem.example"
+  "raw_notes": "Lead times and availability vary by item \u2014 flagged inline.\n\nManish Kapoor\nHarbor Chemical Co.\nm.kapoor@harborchem.example"
 }

@@ -14,7 +14,7 @@
       "quantity": "40",
       "uom": "each",
       "unit_price": "18.75",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null
@@ -27,7 +27,7 @@
       "quantity": "160",
       "uom": "each",
       "unit_price": "16.20",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null
@@ -40,7 +40,7 @@
       "quantity": "30",
       "uom": "each",
       "unit_price": "24.40",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null
@@ -53,7 +53,7 @@
       "quantity": "120",
       "uom": "each",
       "unit_price": "21.85",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null
@@ -66,7 +66,7 @@
       "quantity": "20",
       "uom": "each",
       "unit_price": "32.10",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null

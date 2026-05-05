@@ -14,7 +14,7 @@
       "quantity": "300",
       "uom": "each",
       "unit_price": "12.50",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null
@@ -27,7 +27,7 @@
       "quantity": "50",
       "uom": "gal",
       "unit_price": "48.00",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [
         {"min_qty": "100", "unit_price": "44.00"},
         {"min_qty": "250", "unit_price": "40.00"}
@@ -43,7 +43,7 @@
       "quantity": "8",
       "uom": "each",
       "unit_price": "22.00",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null
@@ -56,7 +56,7 @@
       "quantity": "6",
       "uom": "each",
       "unit_price": "89.00",
-      "currency": null,
+      "currency": "USD",
       "tier_prices": [],
       "min_order_qty": null,
       "notes": null

@@ -119,7 +119,7 @@ def find_products_by_description_similarity(
     conn: psycopg.Connection,
     description: str,
     limit: int = 5,
-    threshold: float = 0.3,
+    threshold: float = 0.45,
 ) -> list[ScoredProduct]:
     """Find products whose description is fuzzily similar to ``description``.
 

@@ -275,6 +275,24 @@ def test_flag_node_currency_mismatch(_require_db: None) -> None:
     assert "USD" in flag.detail
 
 
+def test_flag_node_currency_unknown_quote_side_no_flag(_require_db: None) -> None:
+    """Source ambiguous (line.currency is None) — no currency_mismatch flag fires
+    even though the catalog has an explicit last_paid_currency."""
+    quote = _make_quote(_aloe_clean_line(currency=None))
+    matches = [_make_match(0, "AL101")]
+    [match] = flag_node({"quote": quote, "matches": matches})["matches"]
+    assert not any(f.kind == ExceptionKind.CURRENCY_MISMATCH for f in match.flags)
+
+
+def test_flag_node_currency_unknown_catalog_side_no_flag(_require_db: None) -> None:
+    """Catalog gap (product.last_paid_currency is None) — no flag, even when the
+    quote states an explicit currency. SULFUR-PRILL-50 is seeded with last_paid_currency=None."""
+    quote = _make_quote(_aloe_clean_line(currency="USD"))
+    matches = [_make_match(0, "SULFUR-PRILL-50")]
+    [match] = flag_node({"quote": quote, "matches": matches})["matches"]
+    assert not any(f.kind == ExceptionKind.CURRENCY_MISMATCH for f in match.flags)
+
+
 def test_flag_node_pack_size_substantive_drift(_require_db: None) -> None:
     """Different container word fires PACK_SIZE_DRIFT."""
     quote = _make_quote(_aloe_clean_line(pack_size="5 kg sack"))
