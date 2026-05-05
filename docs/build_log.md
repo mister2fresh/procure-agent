@@ -630,3 +630,58 @@ Stashing the design-decisions narrative now so Day 6 doesn't rebuild it from scr
 *Drift-from-handoff notes worth a sentence in design-decisions or "what changed during the build":*
 - `parse` collapsed into `extract` — a one-line JSON transform off the model's terminal turn doesn't need its own node.
 - `reconcile` was planning scaffolding; once built, identity and divergence had naturally distinct contracts and merging them would have hidden which decision a regression came from.
+
+## 2026-05-05 — Day 4 (full-corpus eval baseline + cascade/flag observability)
+
+First end-to-end run of the full graph (`extract → match → flag → interrupt`) against all 14 synthetic-quote fixtures (65 line_items, ~12 Sonnet calls). Goal was observation — corpus-level cascade-tier distribution and flag-firing rates — not tuning. Artifact: `evals/runs/20260505T181616Z.json`.
+
+**Headline numbers.**
+- Field-match: **98.0%** (768/784) — extraction baseline holds across the corpus.
+- Cascade: 54 supplier_sku_exact, 1 requested_sku_exact, 0 supplier_sku_fuzzy, 0 requested_sku_fuzzy, 3 description_fuzzy, 7 unmatched.
+- Flags raised: 52 currency_mismatch, 45 price_variance, 27 pack_size_drift, 7 unmatched.
+
+**Cascade is bimodal in this corpus.** SKU-bearing fixtures (11 of 14) hit `supplier_sku_exact` on every line; the 3 prose fixtures with all-`None` supplier_skus (`09_date_formats`, `11_leadtime_prose`, `12_revised`) drop straight to `description_fuzzy` or `unmatched`. **Both fuzzy SKU tiers (3, 4) saw zero hits** — the corpus has no SKU-typo cases, so tier 3/4 is unit-test-only behavior right now. Adding one substitution-typo fixture (e.g., `STRAPPP58` from the unit test promoted into a quote) would close the cascade-coverage gap before Day 6.
+
+**Description_fuzzy is producing wrong matches.** All 3 hits land at confidence 0.33–0.40, into catalog SKUs that aren't actually right:
+- `09_date_formats L0/L1` → `LINER-DRUM-CL` (catalog: liner, roll of 50). Quote prose: "drum heat seal closures, kraft" / "drum 1/2-mil liner, FDA". `LINER-DRUM-CL` shares the "DRUM" / "LINER" tokens by trigram coincidence; it isn't the same product. Bogus divergence flags cascade: price_variance 92.3% / 94.9%, plus pack_size_drift on the asymmetric-None.
+- `11_leadtime_prose L2` → `SULK-50` (catalog: sulk, 50 lb). Quote prose: "Sulfur, agricultural-grade, 50 lb bag". Trigram match through "sulf"/"sulk" letter overlap; wrong product. Cascades a 53.8% price_variance.
+
+This is **Day-3 decision (E) playing out exactly as predicted**: low-confidence description-fuzzy matches cascade bogus divergence flags, and the noise looks like signal at HITL time. Two fixes worth weighing for Day 5/6: (a) raise the pg_trgm threshold from 0.3 → 0.45 (would push these to UNMATCHED, where they belong); (b) gate divergence-flag emission on `confidence >= 0.5` in `flag_node` (keeps the match for HITL "did you mean…?" but suppresses bogus price/pack flags). (a) is structurally cleaner — UNMATCHED already encodes the "we didn't find it" signal; (b) leaks the cascade's confidence into flag logic.
+
+**Currency_mismatch is 90% noise.** Of 52 currency_mismatch flags, **47 are `None vs USD`** — the bare-`$` extraction-shape false-positive flagged in Day-3 decision (E)'s "Held drift". 4 are legitimate `CAD vs USD` (nutrigrow + one Canadian quote line). 1 is `None vs CAD`. The flag is firing on 90% of matched lines and the noise dominates the signal completely.
+
+The cleanest fix is at extraction: bare `$` in dollar-formatted prose should canonicalize to `"USD"` (not `None`). That's a prompt change, not a flag-logic change. The alternative — comparator treating `None ≈ USD` as cosmetic when the source has a bare symbol — leaks extraction concerns into flag code. Defer the prompt edit until the per-field audit (memory: prompt-edit checklist) so we don't flush other tuning.
+
+**Pack_size_drift is mostly substantive.** Of 27 firings: **8 asymmetric-None** (catalog has data, quote prose didn't restate it — Day-3 decision (F)'s predicted noise pattern, confirmed); **19 both-real** divergences. The both-real bucket is mostly legitimate, but a few are cosmetic that `same_pack_size` should arguably collapse:
+- `'1 gal' != '1 gal jug'` — same numeric, container token missing on the quote side
+- `'drum (55 gal)' != '55 gal drum'` — extraction word-order (also surfaces as a value_mismatch on extraction; root cause is upstream)
+- `'2.2 cu ft compressed bale' != '2.2 cu ft bale'` — qualifier difference, possibly substantive (compressed peat ships denser)
+- `'bag' != '30 lb bag'` — partial pack_size missing the weight (this IS substantive — a bare "bag" with no weight is ambiguous)
+
+The `same_pack_size` predicate's tokenizer (lowercase + digit-letter split + whitespace squeeze) doesn't currently collapse word-order or trailing-token differences. Keep as-is for v1; revisit if the cosmetic cases bite at HITL.
+
+**The cascade caught one real substitution.** `quote_nutrigrow_2026-04-25 L4`: supplier offered `KMEAL-44` (their packing, 44 lb bag, missing from product master), buyer's requested SKU was `KMEAL-50` (catalog hit). Match cascade: tier 1 supplier_sku_exact misses → tier 2 requested_sku_exact hits at confidence 1.0. `pack_size_drift` then fires correctly: `44 lb bag != product 50 lb bag`. **This is exactly the supplier-substitution workflow the cascade was designed for** — supplier and buyer transacting against different SKUs for the same product, divergence flagged at the packing level. Worth quoting in the README design-decisions section as the canonical "why we cascade" example.
+
+**Extraction-side mismatches surfaced (15 value_mismatch + 1 format_drift).** Most are `raw_notes` Sonnet stochasticity (already-known noise; per Day-2 side-by-side run). Material ones:
+- `terragreen` × 3: `'50# bag'` extracted verbatim vs. golden `'50 lb bag'` — the `#` pound-abbreviation convention isn't being normalized. Prompt-tuning candidate (per the prompt-edit checklist).
+- `pacific_amendments`: `'Sphagnum Peat Moss, compressed'` description vs. golden `'Sphagnum Peat Moss'`, with the `compressed` qualifier instead landing in pack_size — the quote prose put `compressed` in the description column and the model split it ambiguously. Edge case.
+- `quote_08 L0`: `'drum (55 gal)'` vs. golden `'55 gal drum'` — extraction word-order. Same root cause as the cosmetic pack_size_drift firing above.
+
+**Failure modes that did NOT show up in the corpus.**
+- No supplier_sku_fuzzy or requested_sku_fuzzy hits — the cascade's typo-recovery tiers are unexercised.
+- No quote-level field failures (currency at quote-level, valid_through, dates) — extraction stable.
+- No FAIL fixtures — graph end-to-end ran clean on all 14.
+
+**Decisions for Day 6 README design-decisions section.**
+- Lead the cascade narrative with the **nutrigrow KMEAL-44→KMEAL-50 substitution catch** — it's the single most legible "why this architecture" moment in the corpus.
+- Acknowledge the **description_fuzzy false-positive failure mode** explicitly. Either (a) document the pg_trgm threshold tune that fixes it, or (b) keep the v1 behavior and call out "low-confidence description matches cascade noisy divergence flags" as a known trade-off the HITL operator is in the loop for. Either is defensible; pick before the section locks.
+- Acknowledge the **currency-mismatch extraction-shape noise** the same way. The README can either show the post-fix numbers or be honest about v1 noise; the latter is more credible if the demo is going to surface a `None vs USD` flag.
+
+**Held drift / not done this session.**
+- pg_trgm threshold still 0.3. Decision deferred.
+- Bare-`$` → `USD` extraction normalization deferred.
+- No SKU-typo fixture in the corpus to exercise tiers 3–4 of the cascade. Worth adding before Day 6.
+- Asymmetric-None pack_size flag not gated; per (F), watching it.
+- `evals/run.py` doesn't compute extraction-vs-match correlation (e.g., when did extraction value_mismatch *cause* a downstream match/flag failure?). Today's analysis was manual via the artifact JSON. If we run the eval more than 2-3 more times, worth adding a "joint failures" report.
+
+**Next:** FastAPI HITL endpoint + Streamlit demo (Day 5). The eval harness is the observability tool to run before/after each tuning change; today's artifact is the baseline to diff against.
