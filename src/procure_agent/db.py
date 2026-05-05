@@ -10,11 +10,25 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 
 import psycopg
 from psycopg.rows import dict_row
 
 from procure_agent.schemas import Product
+
+
+@dataclass(frozen=True, slots=True)
+class ScoredProduct:
+    """A product paired with the trigram similarity score that surfaced it.
+
+    Returned by the fuzzy-match helpers so callers (notably ``match_node``)
+    can record the score on ``MatchResult.confidence`` without re-running
+    ``similarity()``.
+    """
+
+    product: Product
+    score: float
 
 
 @contextmanager
@@ -55,12 +69,23 @@ def get_product(conn: psycopg.Connection, sku: str) -> Product | None:
     return Product.model_validate(row) if row else None
 
 
+def _hydrate_scored(rows: list[dict]) -> list[ScoredProduct]:
+    """Hydrate ``(product, score)`` pairs from rows with a ``score`` column."""
+    return [
+        ScoredProduct(
+            product=Product.model_validate({k: v for k, v in r.items() if k != "score"}),
+            score=float(r["score"]),
+        )
+        for r in rows
+    ]
+
+
 def find_products_by_sku_similarity(
     conn: psycopg.Connection,
     sku: str,
     limit: int = 5,
     threshold: float = 0.3,
-) -> list[Product]:
+) -> list[ScoredProduct]:
     """Find products whose SKU is fuzzily similar to ``sku``.
 
     Uses pg_trgm trigram similarity against ``products.sku``. Survives the
@@ -74,7 +99,7 @@ def find_products_by_sku_similarity(
         threshold: Minimum trigram similarity (0.0-1.0) to include.
 
     Returns:
-        Matching products ordered by similarity descending. Empty list when
+        Scored products ordered by similarity descending. Empty list when
         no row clears ``threshold``.
     """
     rows = conn.execute(
@@ -87,7 +112,7 @@ def find_products_by_sku_similarity(
         """,
         (sku, sku, threshold, limit),
     ).fetchall()
-    return [Product.model_validate(r) for r in rows]
+    return _hydrate_scored(rows)
 
 
 def find_products_by_description_similarity(
@@ -95,7 +120,7 @@ def find_products_by_description_similarity(
     description: str,
     limit: int = 5,
     threshold: float = 0.3,
-) -> list[Product]:
+) -> list[ScoredProduct]:
     """Find products whose description is fuzzily similar to ``description``.
 
     Same trigram approach as :func:`find_products_by_sku_similarity`, against
@@ -109,7 +134,7 @@ def find_products_by_description_similarity(
         threshold: Minimum trigram similarity (0.0-1.0) to include.
 
     Returns:
-        Matching products ordered by similarity descending.
+        Scored products ordered by similarity descending.
     """
     rows = conn.execute(
         """
@@ -121,4 +146,4 @@ def find_products_by_description_similarity(
         """,
         (description, description, threshold, limit),
     ).fetchall()
-    return [Product.model_validate(r) for r in rows]
+    return _hydrate_scored(rows)

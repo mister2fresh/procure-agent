@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from typing import Literal
 
+import psycopg
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
@@ -23,9 +24,21 @@ from procure_agent.agent import (
     client,
     extract_json_block,
 )
+from procure_agent.db import (
+    connect,
+    find_products_by_description_similarity,
+    find_products_by_sku_similarity,
+    get_product,
+)
 from procure_agent.prompts import SYSTEM
-from procure_agent.schemas import Quote
-from procure_agent.state import QuoteWorkflowState
+from procure_agent.schemas import Quote, QuoteLineItem
+from procure_agent.state import (
+    Exception_,
+    ExceptionKind,
+    MatchMethod,
+    MatchResult,
+    QuoteWorkflowState,
+)
 
 
 def extract_node(state: QuoteWorkflowState) -> dict:
@@ -83,6 +96,78 @@ def should_continue(state: QuoteWorkflowState) -> Literal["tools", "match"]:
     return "match"
 
 
+def _match_line(
+    conn: psycopg.Connection, line_index: int, line: QuoteLineItem
+) -> MatchResult:
+    """Run the match cascade for one quote line. Short-circuits at first hit."""
+    # Tier 1: exact supplier_sku
+    if line.supplier_sku and (p := get_product(conn, line.supplier_sku)):
+        return MatchResult(
+            line_index=line_index,
+            matched_sku=p.sku,
+            match_method=MatchMethod.SUPPLIER_SKU_EXACT,
+            confidence=1.0,
+        )
+
+    # Tier 2: exact requested_sku
+    if line.requested_sku and (p := get_product(conn, line.requested_sku)):
+        return MatchResult(
+            line_index=line_index,
+            matched_sku=p.sku,
+            match_method=MatchMethod.REQUESTED_SKU_EXACT,
+            confidence=1.0,
+        )
+
+    # Tier 3: fuzzy supplier_sku
+    if line.supplier_sku:
+        hits = find_products_by_sku_similarity(conn, line.supplier_sku, limit=1)
+        if hits:
+            return MatchResult(
+                line_index=line_index,
+                matched_sku=hits[0].product.sku,
+                match_method=MatchMethod.SUPPLIER_SKU_FUZZY,
+                confidence=hits[0].score,
+            )
+
+    # Tier 4: fuzzy requested_sku
+    if line.requested_sku:
+        hits = find_products_by_sku_similarity(conn, line.requested_sku, limit=1)
+        if hits:
+            return MatchResult(
+                line_index=line_index,
+                matched_sku=hits[0].product.sku,
+                match_method=MatchMethod.REQUESTED_SKU_FUZZY,
+                confidence=hits[0].score,
+            )
+
+    # Tier 5: fuzzy description (no guard — description is required)
+    hits = find_products_by_description_similarity(conn, line.description, limit=1)
+    if hits:
+        return MatchResult(
+            line_index=line_index,
+            matched_sku=hits[0].product.sku,
+            match_method=MatchMethod.DESCRIPTION_FUZZY,
+            confidence=hits[0].score,
+        )
+
+    # Fallthrough: UNMATCHED
+    return MatchResult(
+        line_index=line_index,
+        match_method=MatchMethod.UNMATCHED,
+        flags=[
+            Exception_(
+                kind=ExceptionKind.UNMATCHED,
+                detail=(
+                    f"no product master row matched "
+                    f"supplier_sku={line.supplier_sku!r}, "
+                    f"requested_sku={line.requested_sku!r}, "
+                    f"description={line.description!r}"
+                ),
+            )
+        ],
+    )
+
+
 def match_node(state: QuoteWorkflowState) -> dict:
     """Resolve each ``state["quote"].line_items`` entry against the product master.
 
@@ -101,7 +186,12 @@ def match_node(state: QuoteWorkflowState) -> dict:
     Flag accumulation (price variance, currency, pack/UoM drift) happens in
     :func:`flag_node`; this node only attaches the UNMATCHED flag.
     """
-    return {}
+    with connect() as conn:
+        matches = [
+            _match_line(conn, i, line)
+            for i, line in enumerate(state["quote"].line_items)
+        ]
+    return {"matches": matches}
 
 
 def flag_node(state: QuoteWorkflowState) -> dict:

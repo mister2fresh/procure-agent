@@ -57,14 +57,24 @@ def test_sku_similarity_recovers_drifted_sku() -> None:
     """Dashes-dropped variant of a real SKU still resolves via trigrams."""
     with connect() as conn:
         results = find_products_by_sku_similarity(conn, "STRAPPP58")
-    assert any(p.sku == "STRAP-PP-58" for p in results)
+    assert any(hit.product.sku == "STRAP-PP-58" for hit in results)
 
 
 def test_sku_similarity_ranks_exact_match_first() -> None:
     with connect() as conn:
         results = find_products_by_sku_similarity(conn, "STRAP-PP-58", limit=10)
     assert results, "expected at least one match"
-    assert results[0].sku == "STRAP-PP-58"
+    assert results[0].product.sku == "STRAP-PP-58"
+    assert results[0].score == pytest.approx(1.0)
+
+
+def test_sku_similarity_score_in_unit_range() -> None:
+    """Trigram scores survive the round-trip into ``ScoredProduct.score``."""
+    with connect() as conn:
+        results = find_products_by_sku_similarity(conn, "STRAPPP58", limit=10)
+    assert results, "expected at least one match"
+    for hit in results:
+        assert 0.0 < hit.score <= 1.0
 
 
 def test_sku_similarity_respects_limit() -> None:
@@ -83,11 +93,11 @@ def test_description_similarity_finds_known_product() -> None:
     """A description fragment locates the canonical row."""
     with connect() as conn:
         results = find_products_by_description_similarity(conn, "polypropylene strapping")
-    assert any(p.sku == "STRAP-PP-58" for p in results)
+    assert any(hit.product.sku == "STRAP-PP-58" for hit in results)
 
 
 def test_description_similarity_ranks_closest_first() -> None:
     with connect() as conn:
         results = find_products_by_description_similarity(conn, "Aloe vera extract food grade")
     assert results, "expected at least one match"
-    assert results[0].sku == "AL101"
+    assert results[0].product.sku == "AL101"

@@ -563,3 +563,27 @@ psycopg-direct query layer against `procure_agent.products`, pg_trgm enabled wit
 **Next:** `match_node` body — straight cascade calling into `db.py`. Then a couple of integration tests in `tests/test_graph.py` exercising exact / fuzzy / unmatched paths. Then `flag_node` body for the four comparison flags.
 
 **CI miss (same day).** First green CI run on `main` after the Day-3 push went red: all 8 `tests/test_db.py` cases failed with `relation "products" does not exist`. Workflow stood up the postgres service container and exported `DATABASE_URL` but never ran `scripts/migrate.py` between `uv sync` and `uv run pytest`. `test_migrations.py` masked it because that suite spins up its own fresh DB and runs the migrator inline; `test_db.py` connects to the shared service DB and assumed the schema was there. Fix: one `Apply migrations` step in `.github/workflows/ci.yml` before the test step. Lesson: when a suite splits between "owns its own DB" and "uses the shared one", a passing migration test is not evidence the shared DB has been migrated.
+
+## 2026-05-05 — Day 3 (match_node body + ScoredProduct refactor)
+
+**Shipped.**
+- `match_node` body lands. Cascade explicit, five tiers + UNMATCHED fallthrough, short-circuit per line. Split into `_match_line(conn, line_index, line)` (the cascade) and `match_node(state)` (opens connection, maps the helper over `state["quote"].line_items`, returns `{"matches": [...]}`). One `connect()` per node, threaded into every line.
+- `db.py` fuzzy helpers now return `list[ScoredProduct]` (`@dataclass(frozen=True, slots=True)` wrapping `Product` + trigram `score`). Was `list[Product]` with `score` silently dropped via Pydantic's `extra='ignore'` — leaving SQL-computed similarity on the floor. `match_node` reads `hits[0].score` straight into `MatchResult.confidence`, no second roundtrip. `get_product` unchanged (exact lookup has no score). New `_hydrate_scored` helper strips `score` from the row dict before model_validate. `test_db.py` updated to read `hit.product.sku` / `results[0].product.sku`; new `test_sku_similarity_score_in_unit_range` proves the score round-trips through the dataclass; existing exact-match test tightened to assert score 1.0.
+- Smoke against `quote_pacific_amendments_2026-04-25.expected.json` — 8/8 lines hit tier 1 (`supplier_sku_exact`) at confidence 1.0. Helper works end-to-end against real Postgres. Tiers 3–5 (fuzzy + unmatched) untested by this run because Pacific Amendments is the happy-path fixture.
+
+**Decisions worth keeping.**
+- **(A) `ScoredProduct` over raw `(Product, float)` tuples.** Tuple unpacking gets ugly when threaded through several callers. Three-line frozen dataclass keeps `match_node` legible (`hit.product.sku`, `hit.score`) and gives the eventual HITL "did you mean…?" UI a clean shape too. Real reason for the refactor isn't roundtrip avoidance — it's that `similarity()` is already computed in SQL and throwing it away on the way out leaks information the cascade needs.
+- **(B) Helper + node split, not one fat node.** `_match_line` is the part defended in an interview ("walk me through how matching works"). Lifting it out names it and lets `match_node` read as "open conn, map over lines." Three-line node body, ~70-line helper.
+- **(C) Explicit five-tier cascade over data-driven loop.** `[(method, callable), ...]` table iterated until something hits is cute; reading five `if` blocks is what someone defends under questioning. The cascade *is* the domain logic. Verbosity is the feature.
+- **(D) 70-line helper over the 40-line cap.** Each tier is a repeating-shape block (guard → query → return MatchResult). Slimming options all hurt: a "build MatchResult" constructor helper hides which `MatchMethod` goes where; a data-driven loop is option (C). Land the violation as architectural exception, flag if a reviewer pushes.
+- **(E) One connection per node, threaded into every line.** Don't open per-line. The DB tests already prove the helpers reuse a connection cleanly; pooled connect cost dominates the per-line query cost otherwise.
+- **(F) Don't catch DB errors in `match_node`.** `psycopg.OperationalError` propagates. The node failing loudly is right; silent UNMATCHEDs would mask DB outages as data-quality issues.
+- **(G) UNMATCHED `Exception_.detail` includes all three signals tried** (`supplier_sku`, `requested_sku`, `description` with `!r` so `None` shows up unambiguously). The HITL operator reads this string — they need to know what the agent saw, not just that it gave up.
+
+**Held drift / not done.**
+- Fuzzy + unmatched cascade tiers aren't covered by smoke yet. Need a fixture with a typo'd or substituted SKU (the handoff edge-case list has these — `quote_acme_fasteners` typo case is a candidate) to fire tiers 3–5 + the UNMATCHED fallthrough.
+- Match integration tests in `tests/test_graph.py` deferred to next session. Pure-function checks today (no API), exercising exact / fuzzy / unmatched against the seeded DB and the three baked-in inventory signals.
+- pg_trgm `threshold=0.3` default unchanged. Still a guess; tune once eval wraps the graph.
+- `flag_node` still no-op stub. Bodies land after the match integration tests.
+
+**Next:** match integration tests in `tests/test_graph.py` exercising the three cascade outcomes (exact / fuzzy / unmatched) against the seeded DB. Then `flag_node` body for the four comparison flags (PRICE_VARIANCE, CURRENCY_MISMATCH, PACK_SIZE_DRIFT, UOM_MISMATCH).
