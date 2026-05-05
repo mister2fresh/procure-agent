@@ -614,3 +614,19 @@ Closed out match/flag node work in one push. match_node integration coverage for
 - End-to-end smoke through the full graph (extract → match → flag) with a real Anthropic call still untested; only sub-node coverage so far.
 
 **Next:** wrap the full graph in the eval harness (Day 4 work) — extract → match → flag → interrupt against the synthetic quote corpus. Observe failure modes, drop them in here. Tune trigram threshold once a baseline exists. After: FastAPI HITL endpoint + Streamlit demo (Day 5).
+
+**README draft (Day 6 prep) — node naming + reconciliation split.**
+
+Stashing the design-decisions narrative now so Day 6 doesn't rebuild it from scratch. The handoff plan listed `parse → extract → match → reconcile → flag → approval`; what shipped is `extract → match → flag → approval`. Worth being deliberate about why before the architecture diagram locks it in.
+
+*Architecture-diagram caption (proposed):*
+
+> The graph runs `extract → match → flag → approval`. `match` and `flag` are grouped under a brace labeled "reconciliation."
+
+*Design-decisions bullet (proposed, ready for ruthless revise):*
+
+> **Reconciliation splits into identity and divergence.** `match` decides which catalog product a quote line refers to (cascade through five SKU/description tiers, UNMATCHED on fallthrough). `flag` decides where the matched offer diverges from our last reference (price >10%, currency, pack size, UoM). Splitting them earns trace separability — each is its own LangSmith span — independent eval scoring (identity precision vs. flag-emission precision), and a HITL surface that can render identity decisions and divergence flags as two sections. A merged `reconcile` node would have collapsed both into one span.
+
+*Drift-from-handoff notes worth a sentence in design-decisions or "what changed during the build":*
+- `parse` collapsed into `extract` — a one-line JSON transform off the model's terminal turn doesn't need its own node.
+- `reconcile` was planning scaffolding; once built, identity and divergence had naturally distinct contracts and merging them would have hidden which decision a regression came from.
