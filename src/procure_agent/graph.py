@@ -14,7 +14,7 @@ from decimal import Decimal
 from typing import Literal
 
 import psycopg
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
 from procure_agent.agent import (
@@ -37,6 +37,7 @@ from procure_agent.schemas import Quote, QuoteLineItem
 from procure_agent.state import (
     Exception_,
     ExceptionKind,
+    LineAction,
     MatchMethod,
     MatchResult,
     QuoteWorkflowState,
@@ -204,11 +205,16 @@ def match_node(state: QuoteWorkflowState) -> dict:
     return {"matches": matches}
 
 
-def flag_node(state: QuoteWorkflowState) -> dict:
-    """Compare each matched product against its quote line and accumulate flags.
+def _flag_one(
+    conn: psycopg.Connection, line: QuoteLineItem, match: MatchResult
+) -> None:
+    """Append divergence flags for one (line, match) pair. Mutates ``match.flags``.
 
-    For every ``MatchResult`` in ``state["matches"]`` with a non-None
-    ``matched_sku``, load the canonical product and append flags for:
+    Shared between :func:`flag_node` (initial pass over the whole quote) and
+    :func:`approval_node` (re-run against an override SKU). UNMATCHED results
+    return early — they keep the UNMATCHED flag ``match_node`` attached.
+
+    Flag rules:
 
     - ``PRICE_VARIANCE`` when ``unit_price`` deviates from
       ``last_paid_unit_price`` by more than ``PRICE_VARIANCE_THRESHOLD``.
@@ -220,75 +226,110 @@ def flag_node(state: QuoteWorkflowState) -> dict:
       product's ``pack_size`` after cosmetic normalization.
     - ``UOM_MISMATCH`` when ``uom`` doesn't agree with the product's ``uom``
       after cosmetic normalization.
-
-    Mutates each ``MatchResult.flags`` in place. UNMATCHED results pass
-    through untouched — their UNMATCHED flag was attached by ``match_node``.
-    Returns ``{"matches": state["matches"]}``.
     """
+    if match.matched_sku is None:
+        return
+    product = get_product(conn, match.matched_sku)
+    deviation = (
+        abs(line.unit_price - product.last_paid_unit_price)
+        / product.last_paid_unit_price
+    )
+    if deviation > PRICE_VARIANCE_THRESHOLD:
+        match.flags.append(Exception_(
+            kind=ExceptionKind.PRICE_VARIANCE,
+            detail=(
+                f"unit_price {line.unit_price} deviates {deviation:.1%} "
+                f"from last paid {product.last_paid_unit_price}"
+            ),
+        ))
+    if (
+        line.currency is not None
+        and product.last_paid_currency is not None
+        and line.currency != product.last_paid_currency
+    ):
+        match.flags.append(Exception_(
+            kind=ExceptionKind.CURRENCY_MISMATCH,
+            detail=(
+                f"quote currency {line.currency} != "
+                f"last paid {product.last_paid_currency}"
+            ),
+        ))
+    if not same_pack_size(line.pack_size, product.pack_size):
+        match.flags.append(Exception_(
+            kind=ExceptionKind.PACK_SIZE_DRIFT,
+            detail=(
+                f"quote pack_size {line.pack_size} != "
+                f"product {product.pack_size}"
+            ),
+        ))
+    if not same_uom(line.uom, product.uom):
+        match.flags.append(Exception_(
+            kind=ExceptionKind.UOM_MISMATCH,
+            detail=f"quote uom {line.uom} != product {product.uom}",
+        ))
+
+
+def flag_node(state: QuoteWorkflowState) -> dict:
+    """Run :func:`_flag_one` against every (line, match) pair on the quote."""
     with connect() as conn:
         for match, line in zip(
             state["matches"], state["quote"].line_items, strict=True
         ):
-            if match.matched_sku is None:
-                continue
-            product = get_product(conn, match.matched_sku)
-            deviation = (
-                abs(line.unit_price - product.last_paid_unit_price)
-                / product.last_paid_unit_price
-            )
-            if deviation > PRICE_VARIANCE_THRESHOLD:
-                match.flags.append(Exception_(
-                    kind=ExceptionKind.PRICE_VARIANCE,
-                    detail=(
-                        f"unit_price {line.unit_price} deviates {deviation:.1%} "
-                        f"from last paid {product.last_paid_unit_price}"
-                    ),
-                ))
-            if (
-                line.currency is not None
-                and product.last_paid_currency is not None
-                and line.currency != product.last_paid_currency
-            ):
-                match.flags.append(Exception_(
-                    kind=ExceptionKind.CURRENCY_MISMATCH,
-                    detail=(
-                        f"quote currency {line.currency} != "
-                        f"last paid {product.last_paid_currency}"
-                    ),
-                ))
-            if not same_pack_size(line.pack_size, product.pack_size):
-                match.flags.append(Exception_(
-                    kind=ExceptionKind.PACK_SIZE_DRIFT,
-                    detail=(
-                        f"quote pack_size {line.pack_size} != "
-                        f"product {product.pack_size}"
-                    ),
-                ))
-            if not same_uom(line.uom, product.uom):
-                match.flags.append(Exception_(
-                    kind=ExceptionKind.UOM_MISMATCH,
-                    detail=f"quote uom {line.uom} != product {product.uom}",
-                ))
+            _flag_one(conn, line, match)
     return {"matches": state["matches"]}
 
 
 def approval_node(state: QuoteWorkflowState) -> dict:
-    """No-op until HITL formatting lands.
+    """Apply the human reviewer's per-line decisions to ``state['matches']``.
 
     The graph halts immediately *before* this node via ``interrupt_before``,
-    so this body only runs after the HITL endpoint resumes the run.
+    so this body only runs after the HITL endpoint has injected
+    ``human_decision`` into state and resumed the run.
+
+    Per-line action semantics:
+
+    - ``APPROVE`` — record ``human_action`` on the result; the cascade match
+      and any flags pass through untouched.
+    - ``REJECT`` — record ``human_action``; the line is excluded from any
+      downstream PO. The original match + flags stay on the result so the
+      audit trail preserves what the reviewer rejected.
+    - ``OVERRIDE`` — set ``matched_sku`` to the reviewer's choice, mark the
+      result ``MatchMethod.HUMAN_OVERRIDE`` with full confidence, drop the
+      flags from the prior (wrong) match, and re-run :func:`_flag_one`
+      against the override SKU so any new divergences surface immediately.
+
+    The API boundary (:func:`procure_agent.api.resume_run`) validates that
+    every ``override_sku`` resolves to a real product before the graph
+    resumes, so ``_flag_one`` here is guaranteed a hydratable SKU.
     """
-    return {}
+    decision = state["human_decision"]
+    matches = state["matches"]
+    by_index = {m.line_index: m for m in matches}
+    lines = state["quote"].line_items
+
+    with connect() as conn:
+        for ld in decision.line_decisions:
+            match = by_index[ld.line_index]
+            match.human_action = ld.action
+            if ld.action == LineAction.OVERRIDE:
+                match.matched_sku = ld.override_sku
+                match.match_method = MatchMethod.HUMAN_OVERRIDE
+                match.confidence = 1.0
+                match.flags = []
+                _flag_one(conn, lines[ld.line_index], match)
+    return {"matches": matches}
 
 
-def build_graph():
-    """Wire nodes + edges and compile with the in-memory checkpointer.
+def build_graph(checkpointer: BaseCheckpointSaver):
+    """Wire nodes + edges and compile with the supplied checkpointer.
 
     Edges:
         START → extract → (tools → extract)* → match → flag → approval → END
 
     Halts before ``approval`` so the HITL endpoint can inject the human
-    decision into state before the graph resumes.
+    decision into state before the graph resumes. Caller owns the checkpointer
+    lifecycle — pass ``MemorySaver`` for tests/evals, ``PostgresSaver`` for
+    anything that needs to survive a process restart (CLI demo, FastAPI HITL).
     """
     builder = StateGraph(QuoteWorkflowState)
     builder.add_node("extract", extract_node)
@@ -309,24 +350,27 @@ def build_graph():
     builder.add_edge("approval", END)
 
     return builder.compile(
-        checkpointer=MemorySaver(),
+        checkpointer=checkpointer,
         interrupt_before=["approval"],
     )
 
 
-graph = build_graph()
-
-
 if __name__ == "__main__":
+    import os
     import sys
+
+    from langgraph.checkpoint.postgres import PostgresSaver
 
     from procure_agent.agent import DEFAULT_FIXTURE
 
     fixture = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_FIXTURE
+    url = os.environ["DATABASE_URL"]
     initial_state: QuoteWorkflowState = {
         "fixture_filename": fixture,
         "messages": [{"role": "user", "content": f"Extract the quote in {fixture} as JSON."}],
     }
     config = {"configurable": {"thread_id": f"demo-{fixture}"}}
-    final_state = graph.invoke(initial_state, config=config)
+    with PostgresSaver.from_conn_string(url) as checkpointer:
+        graph = build_graph(checkpointer)
+        final_state = graph.invoke(initial_state, config=config)
     print(final_state["quote"].model_dump_json(indent=2))

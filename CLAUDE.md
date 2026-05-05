@@ -21,7 +21,8 @@ uv sync --all-groups               # install deps including dev
 uv run ruff check .                # lint
 uv run pytest                      # tests + evals (requires postgres for DB tests)
 docker compose up -d               # local postgres
-uv run python scripts/migrate.py   # apply pending migrations
+uv run python scripts/migrate.py             # apply pending domain migrations
+uv run python scripts/setup_checkpointer.py  # create LangGraph checkpoint tables (idempotent, public schema)
 uv run python scripts/generate_seed_sql.py   # regenerate 0002_seed_products.sql from CSV
 ```
 

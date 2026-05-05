@@ -770,3 +770,44 @@ One-line change in `agent.py:29` (`MODEL = "claude-sonnet-4-6"` → `"claude-hai
 **Decision: stick with Haiku.** -0.8pt accuracy vs Sonnet is acceptable for the cost/latency profile of an extraction call. The CLAUDE.md split (Sonnet planner, Haiku extraction) holds.
 
 **Next:** Day 5 — FastAPI HITL approval endpoint + Streamlit demo, on the locked Haiku extraction path.
+
+## 2026-05-05 — Day 5 (kicked off two days early): PostgresSaver + HITL schema + approval_node + FastAPI
+
+Eval baseline locked, pivoted to Day 5. Four chunks landed.
+
+**(1) PostgresSaver swap.** Retired `MemorySaver`; `build_graph(checkpointer)` now requires the checkpointer explicitly — caller picks. Module-level `graph = build_graph()` removed (couldn't survive without a connection in scope), so eval/test callers build their own with `MemorySaver` and prod callers (CLI, FastAPI) pass `PostgresSaver`. New `scripts/setup_checkpointer.py` runs `PostgresSaver.setup()` idempotently.
+
+**Schema-split footgun worth recording.** First setup attempt put checkpoint tables in `procure_agent` (manual `SET search_path` before `setup()`). Broke at first invoke: `PostgresSaver.from_conn_string` opens connections with default search_path, `get_tuple` queried `public.checkpoints` → `UndefinedTable`. Resolution: keep checkpoint tables in `public`, domain tables in `procure_agent`. They're conceptually different (LangGraph internals vs. our domain model) and trying to consolidate them breaks at runtime. Don't re-litigate.
+
+**(2) HITL data shapes.** `LineAction` enum (approve/reject/override), `LineDecision` (with pydantic validator: `override_sku` required iff `action==OVERRIDE`), `HumanDecision` (reviewer + decided_at + line_decisions + overall_notes). `MatchResult` gained `human_action: LineAction | None`; `MatchMethod` gained `HUMAN_OVERRIDE` as a real cascade tier. Per-line v1, not per-flag — per-flag is closer to real procurement HITL but adds UX complexity not worth Day 5 budget; deferred to Week 3+.
+
+**(3) approval_node body.** Three-way dispatch:
+- APPROVE — sets `human_action`; original cascade match + flags untouched.
+- REJECT — sets `human_action`; preserves the original match + flags as audit trail of *what was rejected* (distinct from "no match found"). Line excluded from PO downstream — `human_action == REJECT` is the marker.
+- OVERRIDE — swap `matched_sku`, change method to `HUMAN_OVERRIDE`, confidence=1.0, drop the prior (wrong) flags, re-run `_flag_one` against the override product.
+
+The `_flag_one` extraction is the refactor that earned the override path. `flag_node` is now a four-line wrapper iterating the same helper. No behavior change for the initial pass; the override re-flagging is a new use case.
+
+**Re-running flags after override is the safety lever.** Smoke test: overriding aloe-vera (`kg`) line to `STRAP-PP-58` (`each`) fired a fresh `uom_mismatch` flag the original cascade didn't have. Operator sees divergence against the override SKU before the line goes downstream — this is what stops a typo override from silently becoming a bad PO line.
+
+**(4) FastAPI HITL endpoint** at `src/procure_agent/api.py`. Endpoints:
+- `GET /fixtures` — Streamlit dropdown source.
+- `POST /runs` — invoke graph until interrupt; returns thread_id + matches + flags.
+- `GET /runs/{thread_id}` — current snapshot (status: pending_approval / completed / in_progress).
+- `POST /runs/{thread_id}/resume` — inject HumanDecision, run to END.
+
+Connection strategy: per-request `PostgresSaver.from_conn_string` context manager. Demo traffic is recruiter-scale; pool optimization deferred. (Documented in api.py docstring so it doesn't get "optimized" without context.)
+
+**Validation lives at the boundary** by design. Three layers:
+1. Pydantic on `LineDecision` — override_sku presence, mutually exclusive with non-override actions.
+2. `_validate_decisions` — one-decision-per-match cardinality + index-set alignment.
+3. `_validate_override_skus` — every override resolves in catalog (cheap `WHERE sku = ANY(%s)`).
+
+Domain code (approval_node) trusts these and doesn't double-check. Operator typos surface as 422 with the missing SKU listed before the graph resumes.
+
+**Held drift / not done this session.**
+- LangGraph deserialization warnings on `Quote` / `MatchResult` / Anthropic `TextBlock` / `ToolUseBlock` (`allowed_msgpack_modules`). Currently advisory; will block in a future LangGraph version. Day 5+ tidy.
+- `agent_runs` table still unused. Day 6 morning when README's traced-sample-runs section needs it.
+- Streamlit demo (UI over the API) and Railway deploy outstanding.
+
+**Where this leaves Day 5.** ~70% by lines-of-work. Hard architecture decisions (data shapes, validation strategy, connection lifecycle, override semantics) are settled. What's left is UI scaffolding + deploy.

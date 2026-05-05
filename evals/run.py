@@ -27,10 +27,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from langgraph.checkpoint.memory import MemorySaver
+
 from evals.comparator import FieldComparison, FixtureResult, compare
 from procure_agent.agent import JSON_BLOCK
-from procure_agent.graph import graph
+from procure_agent.graph import build_graph
 from procure_agent.state import MatchResult, QuoteWorkflowState
+
+GRAPH = build_graph(MemorySaver())
 
 ROOT = Path(__file__).resolve().parents[1]
 QUOTES_DIR = ROOT / "data" / "synthetic_quotes"
@@ -98,7 +102,7 @@ def _run_one(stem: str, source: Path, golden_path: Path) -> EvalRow:
         ],
     }
     config = {"configurable": {"thread_id": f"eval-{stem}"}}
-    final_state = graph.invoke(initial_state, config=config)
+    final_state = GRAPH.invoke(initial_state, config=config)
     predicted = json.loads(_extract_predicted_json(final_state["messages"]))
     golden = json.loads(golden_path.read_text())
     result = compare(predicted, golden, stem)

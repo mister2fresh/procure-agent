@@ -9,10 +9,11 @@ header mismatches) are out of scope until supplier-onboarding ships.
 from __future__ import annotations
 
 import operator
+from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from procure_agent.schemas import Quote
 
@@ -30,6 +31,7 @@ class MatchMethod(StrEnum):
     REQUESTED_SKU_FUZZY = "requested_sku_fuzzy"
     DESCRIPTION_FUZZY = "description_fuzzy"
     UNMATCHED = "unmatched"
+    HUMAN_OVERRIDE = "human_override"
 
 
 class ExceptionKind(StrEnum):
@@ -40,6 +42,19 @@ class ExceptionKind(StrEnum):
     CURRENCY_MISMATCH = "currency_mismatch"
     PACK_SIZE_DRIFT = "pack_size_drift"
     UOM_MISMATCH = "uom_mismatch"
+
+
+class LineAction(StrEnum):
+    """How the human reviewer chose to resolve a single quote line.
+
+    v1 is per-line, not per-flag — the reviewer sees the full set of flags on
+    a line and decides the line as a unit. Per-flag granularity is a future
+    enhancement.
+    """
+
+    APPROVE = "approve"
+    REJECT = "reject"
+    OVERRIDE = "override"
 
 
 class Exception_(BaseModel):
@@ -67,7 +82,10 @@ class MatchResult(BaseModel):
     ``flags`` lists every :class:`Exception_` raised against this line; an
     empty list is a clean reconciliation. ``confidence`` is 1.0 for exact
     matches, the trigram similarity score for fuzzy matches, and 0.0 when
-    unmatched.
+    unmatched. ``human_action`` is ``None`` until ``approval_node`` runs;
+    after resume it carries the reviewer's per-line decision (approve /
+    reject / override) so downstream consumers see one source of truth per
+    line.
     """
 
     line_index: int
@@ -75,6 +93,48 @@ class MatchResult(BaseModel):
     match_method: MatchMethod = MatchMethod.UNMATCHED
     confidence: float = 0.0
     flags: list[Exception_] = Field(default_factory=list)
+    human_action: LineAction | None = None
+
+
+class LineDecision(BaseModel):
+    """One reviewer decision against a single ``MatchResult``.
+
+    ``override_sku`` is required when ``action == OVERRIDE`` and forbidden
+    otherwise — enforced by :meth:`_check_override_sku`. Caller pairs
+    ``LineDecision`` to its target by ``line_index``, which must match the
+    corresponding ``MatchResult.line_index``.
+    """
+
+    line_index: int
+    action: LineAction
+    override_sku: str | None = None
+    notes: str | None = None
+
+    @model_validator(mode="after")
+    def _check_override_sku(self) -> LineDecision:
+        if self.action == LineAction.OVERRIDE and not self.override_sku:
+            raise ValueError("override_sku is required when action == 'override'")
+        if self.action != LineAction.OVERRIDE and self.override_sku is not None:
+            raise ValueError("override_sku may only be set when action == 'override'")
+        return self
+
+
+class HumanDecision(BaseModel):
+    """Human-reviewer payload injected into state at the ``approval`` interrupt.
+
+    ``line_decisions`` length must match ``state['matches']`` length and every
+    ``LineDecision.line_index`` must correspond to a real ``MatchResult``.
+    Cardinality validation lives in the API handler at the boundary, not here,
+    so this model stays usable for partial-state inspection in tests.
+
+    ``decided_at`` is set server-side when the HITL endpoint resumes the run
+    — clients don't supply it.
+    """
+
+    reviewer: str
+    decided_at: datetime
+    line_decisions: list[LineDecision]
+    overall_notes: str | None = None
 
 
 class QuoteWorkflowState(TypedDict, total=False):
@@ -96,4 +156,4 @@ class QuoteWorkflowState(TypedDict, total=False):
     messages: Annotated[list[dict], operator.add]
     quote: Quote
     matches: list[MatchResult]
-    human_decision: dict
+    human_decision: HumanDecision

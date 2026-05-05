@@ -18,11 +18,11 @@ from types import SimpleNamespace
 import psycopg
 import pytest
 from dotenv import load_dotenv
+from langgraph.checkpoint.memory import MemorySaver
 
 from procure_agent.graph import (
     build_graph,
     flag_node,
-    graph,
     match_node,
     should_continue,
     tools_node,
@@ -34,7 +34,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_graph_compiles_with_expected_nodes() -> None:
-    g = build_graph()
+    g = build_graph(MemorySaver())
     assert set(g.nodes.keys()) == {
         "__start__",
         "extract",
@@ -43,10 +43,6 @@ def test_graph_compiles_with_expected_nodes() -> None:
         "flag",
         "approval",
     }
-
-
-def test_module_level_graph_is_compiled() -> None:
-    assert "extract" in graph.nodes
 
 
 def test_should_continue_routes_to_tools_when_tool_use_present() -> None:
