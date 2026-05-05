@@ -587,3 +587,30 @@ psycopg-direct query layer against `procure_agent.products`, pg_trgm enabled wit
 - `flag_node` still no-op stub. Bodies land after the match integration tests.
 
 **Next:** match integration tests in `tests/test_graph.py` exercising the three cascade outcomes (exact / fuzzy / unmatched) against the seeded DB. Then `flag_node` body for the four comparison flags (PRICE_VARIANCE, CURRENCY_MISMATCH, PACK_SIZE_DRIFT, UOM_MISMATCH).
+
+## 2026-05-05 — Day 3 (continued: cascade tier tests + normalize + flag_node)
+
+Closed out match/flag node work in one push. match_node integration coverage for tiers 3–5 + UNMATCHED fallthrough, then a small `normalize` module with tolerance comparators (`same_uom`, `same_pack_size`), then `flag_node` body wired through them with the four-flag cascade. Suite at 82 passing (+4 match_node, +32 normalize, +11 flag_node).
+
+**Files landed.**
+- `tests/test_graph.py` (+15) — four cascade rung tests (tier 3 supplier_sku fuzzy via `STRAPPP58` → `STRAP-PP-58`, tier 4 requested_sku fuzzy with `supplier_sku=None` skipping by guard, tier 5 description fuzzy via `"Aloe vera extract food grade"` → `AL101`, UNMATCHED with the flag detail proving every tried signal). Then 11 `flag_node` integration tests: clean / variance above + below threshold / currency / pack_size substantive + cosmetic / uom substantive (Pacific Amendments STRAP-PP-58 ROLL scenario) + cosmetic / all-four-flags / UNMATCHED passthrough / multi-line independence. DB-skip is per-test (`_require_db` fixture, function-scoped) so the existing pure-function smoke tests still run when postgres is unreachable.
+- `src/procure_agent/normalize.py` — `same_uom(a, b)` and `same_pack_size(a, b)`. Pure leaf utilities, no DB, no Pydantic. Private canonicalizers; public API is the two predicates. UoM uses a static alias map (closed set of 7 from the `UoM` StrEnum); pack_size collapses cosmetic drift via lowercase + digit-letter split + whitespace squeeze + trailing-punct strip.
+- `tests/test_normalize.py` (+32) — table-driven via `pytest.mark.parametrize`. Symmetry asserted on every case. Off-canonical tokens (`ROLL`, `box`) intentionally don't alias-map so they fire UOM_MISMATCH against any catalog UoM. `same_pack_size(None, None)` is True; asymmetric None is False.
+- `src/procure_agent/graph.py` — `flag_node` body: one `connect()` per node, mutates `match.flags` in place, returns `state["matches"]`. `PRICE_VARIANCE_THRESHOLD = Decimal("0.10")` at module level. UNMATCHED lines pass through untouched (their flag was attached by match_node).
+
+**Decisions worth keeping.**
+- **(A) Tolerance comparators in their own module, used only at flag time.** Schema decision C (extracted UoM is `text`, not enum) keeps drift visible to the eval harness; the `same_*` predicates collapse cosmetic drift only at flag emission. DB still stores `"Gal"` / `"5kg pail"` verbatim. Pack-size canonicalization at extraction time was the alternative — punted on the rabbit hole of building a reliable parser when the comparator pattern already worked for the eval prose comparator.
+- **(B) Off-canonical UoM tokens fall through unchanged.** The alias map is curated for the 7 canonical values only. A token like `roll` or `box` deliberately survives normalization and fires UOM_MISMATCH against any catalog UoM — that's the Pacific Amendments STRAP-PP-58 ROLL case as a feature, not a bug.
+- **(C) Drop the parallel `enriched` list.** The loop is side-effecting on `match.flags`; building a parallel list documented intent but was paperwork. `return {"matches": state["matches"]}` says what it does.
+- **(D) Mutate `match.flags` in place.** `MatchResult` is not `frozen`, so `.append` works. Trade-off: not strictly pure, but a `model_copy(update=...)` rebuild adds ceremony for no observable difference. Land the violation; revisit if a future reducer change makes it bite.
+- **(E) v1 lets every divergence flag fire on `DESCRIPTION_FUZZY` matches.** A 0.32-confidence "this might be the same product" plus a PRICE_VARIANCE flag is noisy, but per call: let everything fire, see what surfaces at HITL time. Could gate on `confidence >= threshold` later if the noise dominates the signal.
+- **(F) Both-None pack_size is no-flag; asymmetric-None fires.** A supplier asserting "5 kg pail" against a catalog row with no recorded pack_size is a divergence the operator should know about; a clean both-omit isn't.
+- **(G) DB-skip is per-test, not module-scope.** test_graph.py mixes pure-function smokes with DB-required cascade and flag tests. Module-autouse skip would have hidden the structural tests under a stopped postgres; per-test injection of `_require_db` keeps them running.
+
+**Held drift / not done.**
+- Currency comparison is exact-match (`!=`). Two known false-positives: bare-symbol `$` extracted as None vs. catalog `"USD"`, and case drift (`"usd"` vs `"USD"`). Per (E), let v1 fire and see how often it bites.
+- pg_trgm `threshold=0.3` still default. Untouched until the eval harness wraps the graph and we have a baseline.
+- The asymmetric-None pack_size flag per (F) might be noise on prose-only quotes that don't restate pack size. Watch.
+- End-to-end smoke through the full graph (extract → match → flag) with a real Anthropic call still untested; only sub-node coverage so far.
+
+**Next:** wrap the full graph in the eval harness (Day 4 work) — extract → match → flag → interrupt against the synthetic quote corpus. Observe failure modes, drop them in here. Tune trigram threshold once a baseline exists. After: FastAPI HITL endpoint + Streamlit demo (Day 5).

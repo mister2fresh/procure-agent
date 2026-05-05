@@ -10,6 +10,7 @@ are no-op stubs until those workflows land.
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from typing import Literal
 
 import psycopg
@@ -30,6 +31,7 @@ from procure_agent.db import (
     find_products_by_sku_similarity,
     get_product,
 )
+from procure_agent.normalize import same_pack_size, same_uom
 from procure_agent.prompts import SYSTEM
 from procure_agent.schemas import Quote, QuoteLineItem
 from procure_agent.state import (
@@ -39,6 +41,8 @@ from procure_agent.state import (
     MatchResult,
     QuoteWorkflowState,
 )
+
+PRICE_VARIANCE_THRESHOLD = Decimal("0.10")  # 10% per handoff
 
 
 def extract_node(state: QuoteWorkflowState) -> dict:
@@ -198,21 +202,62 @@ def flag_node(state: QuoteWorkflowState) -> dict:
     """Compare each matched product against its quote line and accumulate flags.
 
     For every ``MatchResult`` in ``state["matches"]`` with a non-None
-    ``matched_sku``, load the canonical product and compare against the
-    corresponding ``QuoteLineItem``. Append flags for:
+    ``matched_sku``, load the canonical product and append flags for:
 
     - ``PRICE_VARIANCE`` when ``unit_price`` deviates from
-      ``last_paid_unit_price`` by more than the threshold (handoff: 10%).
+      ``last_paid_unit_price`` by more than ``PRICE_VARIANCE_THRESHOLD``.
     - ``CURRENCY_MISMATCH`` when ``currency`` differs from
       ``last_paid_currency``.
-    - ``PACK_SIZE_DRIFT`` when ``pack_size`` doesn't normalize to the
-      product's ``pack_size``.
-    - ``UOM_MISMATCH`` when ``uom`` differs from the product's ``uom``.
+    - ``PACK_SIZE_DRIFT`` when ``pack_size`` doesn't agree with the
+      product's ``pack_size`` after cosmetic normalization.
+    - ``UOM_MISMATCH`` when ``uom`` doesn't agree with the product's ``uom``
+      after cosmetic normalization.
 
-    Returns ``{"matches": [...]}`` with the enriched list. Unmatched results
-    pass through untouched (their UNMATCHED flag was attached by ``match_node``).
+    Mutates each ``MatchResult.flags`` in place. UNMATCHED results pass
+    through untouched — their UNMATCHED flag was attached by ``match_node``.
+    Returns ``{"matches": state["matches"]}``.
     """
-    return {}
+    with connect() as conn:
+        for match, line in zip(
+            state["matches"], state["quote"].line_items, strict=True
+        ):
+            if match.matched_sku is None:
+                continue
+            product = get_product(conn, match.matched_sku)
+            deviation = (
+                abs(line.unit_price - product.last_paid_unit_price)
+                / product.last_paid_unit_price
+            )
+            if deviation > PRICE_VARIANCE_THRESHOLD:
+                match.flags.append(Exception_(
+                    kind=ExceptionKind.PRICE_VARIANCE,
+                    detail=(
+                        f"unit_price {line.unit_price} deviates {deviation:.1%} "
+                        f"from last paid {product.last_paid_unit_price}"
+                    ),
+                ))
+            if line.currency != product.last_paid_currency:
+                match.flags.append(Exception_(
+                    kind=ExceptionKind.CURRENCY_MISMATCH,
+                    detail=(
+                        f"quote currency {line.currency} != "
+                        f"last paid {product.last_paid_currency}"
+                    ),
+                ))
+            if not same_pack_size(line.pack_size, product.pack_size):
+                match.flags.append(Exception_(
+                    kind=ExceptionKind.PACK_SIZE_DRIFT,
+                    detail=(
+                        f"quote pack_size {line.pack_size} != "
+                        f"product {product.pack_size}"
+                    ),
+                ))
+            if not same_uom(line.uom, product.uom):
+                match.flags.append(Exception_(
+                    kind=ExceptionKind.UOM_MISMATCH,
+                    detail=f"quote uom {line.uom} != product {product.uom}",
+                ))
+    return {"matches": state["matches"]}
 
 
 def approval_node(state: QuoteWorkflowState) -> dict:
