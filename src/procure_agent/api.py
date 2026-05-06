@@ -35,7 +35,14 @@ from langgraph.checkpoint.postgres import PostgresSaver
 from pydantic import BaseModel, Field
 
 from procure_agent.agent import read_file
-from procure_agent.db import connect, get_products_by_skus, search_products
+from procure_agent.db import (
+    connect,
+    get_agent_run_id_by_thread_id,
+    get_products_by_skus,
+    insert_agent_run,
+    search_products,
+    update_agent_run,
+)
 from procure_agent.graph import build_graph
 from procure_agent.schemas import Product
 from procure_agent.state import (
@@ -139,6 +146,68 @@ def _status_for(snapshot_next: tuple[str, ...]) -> str:
     if snapshot_next == ("approval",):
         return "pending_approval"
     return "in_progress"
+
+
+def _record_run_state(
+    run_id: str | None, thread_id: str, values: dict, status: str
+) -> None:
+    """Update the ``agent_runs`` row with a status transition and ``final_state``.
+
+    No-op when ``run_id`` is ``None`` (run was started before agent_runs wiring
+    or the insert was skipped). Stamps ``completed_at`` only on the terminal
+    ``"completed"`` status — non-terminal transitions like ``"pending_approval"``
+    leave it null so the row reflects an in-flight run.
+    """
+    if not run_id:
+        return
+    with connect() as conn:
+        update_agent_run(
+            conn,
+            run_id=run_id,
+            status=status,
+            final_state=_serialize_final_state(thread_id, values),
+            completed=(status == "completed"),
+        )
+
+
+def _mark_run_failed(run_id: str | None) -> None:
+    """Mark the ``agent_runs`` row failed and stamp ``completed_at``.
+
+    No ``final_state`` payload — partial graph state on exception is rarely
+    coherent, and the status row alone is sufficient to surface the failure
+    in eval/README contexts. Add structured failure detail later if debugging
+    against the row becomes a recurring need.
+    """
+    if not run_id:
+        return
+    with connect() as conn:
+        update_agent_run(conn, run_id=run_id, status="failed", completed=True)
+
+
+def _serialize_final_state(thread_id: str, values: dict) -> dict[str, Any]:
+    """Project ``QuoteWorkflowState`` to the JSONB-bound shape stored on
+    ``agent_runs.final_state``.
+
+    Mirrors :func:`_to_snapshot` minus ``matched_products`` (catalog-side data,
+    re-fetchable from ``products``) and minus ``messages`` (full LLM trace,
+    bloats fast and isn't needed for replay). ``thread_id`` is stashed so a row
+    can be back-mapped to its LangGraph checkpoint without a schema migration.
+
+    Pydantic models are dumped in JSON-mode so Decimals/dates/UUIDs round-trip
+    as JSON-native scalars rather than Python repr strings.
+    """
+    quote = values.get("quote")
+    matches: list[MatchResult] = values.get("matches", [])
+    human_decision: HumanDecision | None = values.get("human_decision")
+    return {
+        "thread_id": thread_id,
+        "fixture_filename": values.get("fixture_filename"),
+        "quote": quote.model_dump(mode="json") if quote else None,
+        "matches": [m.model_dump(mode="json") for m in matches],
+        "human_decision": (
+            human_decision.model_dump(mode="json") if human_decision else None
+        ),
+    }
 
 
 def _to_snapshot(thread_id: str, values: dict, next_nodes: tuple[str, ...]) -> RunSnapshot:
@@ -274,10 +343,23 @@ def start_run(req: StartRunRequest) -> RunSnapshot:
             {"role": "user", "content": f"Extract the quote in {req.fixture_filename} as JSON."}
         ],
     }
-    with PostgresSaver.from_conn_string(_database_url()) as cp:
-        g = build_graph(cp)
-        g.invoke(initial, config=config)
-        snapshot = g.get_state(config)
+    with connect() as conn:
+        run_id = insert_agent_run(
+            conn,
+            workflow="quote_reconciliation",
+            fixture_filename=req.fixture_filename,
+            thread_id=thread_id,
+            status="running",
+        )
+    try:
+        with PostgresSaver.from_conn_string(_database_url()) as cp:
+            g = build_graph(cp)
+            g.invoke(initial, config=config)
+            snapshot = g.get_state(config)
+    except Exception:
+        _mark_run_failed(run_id)
+        raise
+    _record_run_state(run_id, thread_id, snapshot.values, _status_for(snapshot.next))
     return _to_snapshot(thread_id, snapshot.values, snapshot.next)
 
 
@@ -301,7 +383,9 @@ def resume_run(
     """Inject ``HumanDecision`` and run the graph to END.
 
     409 if the run isn't paused at ``approval``. 422 if the decision payload's
-    cardinality or indices don't match ``state['matches']``.
+    cardinality or indices don't match ``state['matches']`` — these are request
+    validation failures, not graph failures, so they leave the agent_runs row
+    untouched (status stays ``pending_approval``).
     """
     config = {"configurable": {"thread_id": thread_id}}
     with PostgresSaver.from_conn_string(_database_url()) as cp:
@@ -319,6 +403,8 @@ def resume_run(
             )
         _validate_decisions(req.line_decisions, snapshot.values.get("matches", []))
         _validate_override_skus(req.line_decisions)
+        with connect() as conn:
+            run_id = get_agent_run_id_by_thread_id(conn, thread_id)
         decision = HumanDecision(
             reviewer=req.reviewer,
             decided_at=datetime.now(UTC),
@@ -326,6 +412,11 @@ def resume_run(
             overall_notes=req.overall_notes,
         )
         g.update_state(config, {"human_decision": decision})
-        g.invoke(None, config=config)
-        final = g.get_state(config)
+        try:
+            g.invoke(None, config=config)
+            final = g.get_state(config)
+        except Exception:
+            _mark_run_failed(run_id)
+            raise
+    _record_run_state(run_id, thread_id, final.values, "completed")
     return _to_snapshot(thread_id, final.values, final.next)

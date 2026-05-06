@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.json import Json
 
 from procure_agent.schemas import Product
 
@@ -144,6 +145,112 @@ def search_products(conn: psycopg.Connection, query: str, limit: int = 20) -> li
         (pattern, pattern, pattern, limit),
     ).fetchall()
     return [Product.model_validate({k: v for k, v in r.items() if k != "sku_match"}) for r in rows]
+
+
+def insert_agent_run(
+    conn: psycopg.Connection,
+    *,
+    workflow: str,
+    fixture_filename: str | None,
+    thread_id: str,
+    status: str,
+) -> str:
+    """Insert a new ``agent_runs`` row at run start. Returns the row id.
+
+    ``started_at`` defaults to ``now()`` server-side. ``final_state``,
+    ``completed_at``, ``quote_id``, and ``langsmith_run_id`` are filled in by
+    :func:`update_agent_run` once the run reaches a terminal state.
+
+    Args:
+        conn: Open connection.
+        workflow: Workflow identifier (e.g. ``"quote_reconciliation"``).
+        fixture_filename: Fixture name when the run is fixture-driven; ``None``
+            for ad-hoc invocations.
+        thread_id: LangGraph checkpoint thread_id; the correlator the resume
+            endpoint uses to find this row.
+        status: Initial status string (typically ``"running"``).
+
+    Returns:
+        The new row's UUID, stringified.
+    """
+    row = conn.execute(
+        """
+        INSERT INTO agent_runs (workflow, fixture_filename, thread_id, status)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id
+        """,
+        (workflow, fixture_filename, thread_id, status),
+    ).fetchone()
+    return str(row["id"])
+
+
+def get_agent_run_id_by_thread_id(
+    conn: psycopg.Connection, thread_id: str
+) -> str | None:
+    """Look up the most-recent ``agent_runs.id`` for a ``thread_id``.
+
+    A thread_id is reusable in principle (a caller could pass the same one to
+    two ``POST /runs`` calls); ``ORDER BY started_at DESC LIMIT 1`` resolves
+    that ambiguity to "the live run we'd be resuming."
+
+    Returns:
+        The row id stringified, or ``None`` if no row matches — typical when
+        the run was started before agent_runs wiring landed.
+    """
+    row = conn.execute(
+        """
+        SELECT id FROM agent_runs
+        WHERE thread_id = %s
+        ORDER BY started_at DESC
+        LIMIT 1
+        """,
+        (thread_id,),
+    ).fetchone()
+    return str(row["id"]) if row else None
+
+
+def update_agent_run(
+    conn: psycopg.Connection,
+    *,
+    run_id: str,
+    status: str,
+    final_state: dict | None = None,
+    langsmith_run_id: str | None = None,
+    completed: bool = False,
+) -> None:
+    """Update an ``agent_runs`` row — status transition and/or terminal write.
+
+    Designed for the API-handler write path: ``start_run`` updates to
+    ``pending_approval`` after the graph hits the interrupt; ``resume_run``
+    updates to ``completed`` (with ``completed=True`` to stamp ``completed_at``)
+    after the graph reaches END; either may transition to ``failed`` from a
+    handler-level ``except`` block.
+
+    Args:
+        conn: Open connection.
+        run_id: Row id from :func:`insert_agent_run`.
+        status: New status string.
+        final_state: JSONB-bound projection of ``QuoteWorkflowState``. Pass
+            ``None`` on intermediate transitions.
+        langsmith_run_id: LangSmith span correlator. Pass ``None`` if unknown.
+        completed: When ``True``, stamp ``completed_at = now()``. Pair with a
+            terminal status (``completed``/``failed``).
+    """
+    sets = ["status = %s"]
+    params: list = [status]
+    if final_state is not None:
+        sets.append("final_state = %s")
+        params.append(Json(final_state))
+    if langsmith_run_id is not None:
+        sets.append("langsmith_run_id = %s")
+        params.append(langsmith_run_id)
+    if completed:
+        sets.append("completed_at = now()")
+    params.append(run_id)
+    conn.execute(
+        f"UPDATE agent_runs SET {', '.join(sets)} WHERE id = %s",
+        tuple(params),
+    )
 
 
 def find_products_by_description_similarity(
