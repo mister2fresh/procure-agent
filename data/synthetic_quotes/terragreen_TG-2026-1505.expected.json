@@ -1,0 +1,78 @@
+{
+  "supplier_name": "TerraGreen Supply",
+  "supplier_ref": "TG-2026-1505-A",
+  "customer_ref": "4421",
+  "rfq_ref": "RFQ-spring-amendments",
+  "issued_date": "2026-05-04",
+  "valid_through": "2026-05-25",
+  "line_items": [
+    {
+      "requested_sku": "FME-50",
+      "supplier_sku": "FME-50",
+      "description": "Feather meal 13-0-0",
+      "pack_size": "50 lb bag",
+      "quantity": "30",
+      "uom": "each",
+      "unit_price": "36.50",
+      "currency": "USD",
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "BLMD-50",
+      "supplier_sku": "BLMD-50",
+      "description": "Blood meal 12-0-0",
+      "pack_size": "50 lb bag",
+      "quantity": "20",
+      "uom": "each",
+      "unit_price": "42.00",
+      "currency": "USD",
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "ALFM50",
+      "supplier_sku": "ALFM50",
+      "description": "Alfalfa meal organic nitrogen",
+      "pack_size": "50 lb bag",
+      "quantity": "40",
+      "uom": "each",
+      "unit_price": "28.50",
+      "currency": "USD",
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "GRENS-CC",
+      "supplier_sku": "GRENS-CC",
+      "description": "Cover crop mix oats peas vetch",
+      "pack_size": null,
+      "quantity": "800",
+      "uom": "lb",
+      "unit_price": "1.85",
+      "currency": "USD",
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    },
+    {
+      "requested_sku": "BIOCH-2CFT",
+      "supplier_sku": "BIOCH-2CFT",
+      "description": "Hardwood biochar",
+      "pack_size": "2 cu ft bag",
+      "quantity": "15",
+      "uom": "each",
+      "unit_price": "34.00",
+      "currency": "USD",
+      "tier_prices": [],
+      "min_order_qty": null,
+      "notes": null
+    }
+  ],
+  "payment_terms": "Net 15",
+  "shipping_terms": "FOB Origin (Eugene OR)",
+  "raw_notes": null
+}

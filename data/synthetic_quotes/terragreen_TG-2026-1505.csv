@@ -1,0 +1,13 @@
+# Supplier: TerraGreen Supply
+# Quote #: TG-2026-1505-A
+# Quote Date: 2026-05-04
+# Customer #: 4421
+# Buyer RFQ: RFQ-spring-amendments
+# Valid Until: 2026-05-25
+# Terms: Net 15, FOB Origin (Eugene OR)
+sku,description,qty,uom,unit_price
+FME-50,Feather meal 13-0-0 50 lb,30,bag,36.50
+BLMD-50,Blood meal 12-0-0 50 lb,20,bag,42.00
+ALFM50,Alfalfa meal organic nitrogen 50 lb,40,bag,28.50
+GRENS-CC,Cover crop mix oats peas vetch,800,lb,1.85
+BIOCH-2CFT,Hardwood biochar 2 cu ft,15,bag,34.00
