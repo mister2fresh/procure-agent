@@ -70,6 +70,22 @@ export const quoteSchema = z.object({
 });
 export type Quote = z.infer<typeof quoteSchema>;
 
+export const productSchema = z.object({
+  sku: z.string(),
+  description: z.string(),
+  category: z.string(),
+  uom: z.string(),
+  pack_size: z.string().nullable(),
+  preferred_supplier_name: z.string(),
+  last_paid_unit_price: z.string(),
+  last_paid_currency: z.string().nullable(),
+  last_paid_date: z.string(),
+  reorder_point: z.number().int(),
+  on_hand_qty: z.number().int(),
+  lead_time_days: z.number().int(),
+});
+export type Product = z.infer<typeof productSchema>;
+
 export const matchResultSchema = z.object({
   line_index: z.number().int(),
   matched_sku: z.string().nullable(),
@@ -109,6 +125,7 @@ export const runSnapshotSchema = z.object({
   fixture_filename: z.string().nullable(),
   quote: quoteSchema.nullable(),
   matches: z.array(matchResultSchema),
+  matched_products: z.record(z.string(), productSchema),
   human_decision: humanDecisionSchema.nullable(),
 });
 export type RunSnapshot = z.infer<typeof runSnapshotSchema>;

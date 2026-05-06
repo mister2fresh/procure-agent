@@ -1,11 +1,12 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import type { LineAction, MatchResult, QuoteLineItem } from "@/lib/schemas";
+import type { LineAction, MatchResult, Product, QuoteLineItem } from "@/lib/schemas";
 import { FlagBadge } from "./flag-badge";
+import { MatchedProduct } from "./matched-product";
+import { ProductCombobox } from "./product-combobox";
 
 export type LineReviewState = {
   action: LineAction;
@@ -15,11 +16,13 @@ export type LineReviewState = {
 export function LineReviewCard({
   match,
   line,
+  matchedProduct,
   state,
   onChange,
 }: {
   match: MatchResult;
   line: QuoteLineItem;
+  matchedProduct: Product | null;
   state: LineReviewState;
   onChange: (next: LineReviewState) => void;
 }): React.ReactElement {
@@ -65,6 +68,8 @@ export function LineReviewCard({
           </div>
         </div>
 
+        {matchedProduct ? <MatchedProduct product={matchedProduct} /> : null}
+
         {match.flags.length > 0 ? (
           <div className="flex flex-col gap-2 rounded-md border border-destructive/20 bg-destructive/5 p-3">
             {match.flags.map((flag) => (
@@ -95,18 +100,11 @@ export function LineReviewCard({
           </RadioGroup>
 
           {state.action === "override" ? (
-            <div className="space-y-1.5">
-              <Label htmlFor={`override-${idx}`} className="text-xs">
-                Override SKU (must exist in product master)
-              </Label>
-              <Input
-                id={`override-${idx}`}
-                value={state.override_sku}
-                onChange={(e) => onChange({ ...state, override_sku: e.target.value })}
-                placeholder="e.g. SKU-1234"
-                className="font-mono"
-              />
-            </div>
+            <ProductCombobox
+              inputId={`override-${idx}`}
+              value={state.override_sku}
+              onChange={(sku) => onChange({ ...state, override_sku: sku })}
+            />
           ) : null}
         </div>
       </CardContent>

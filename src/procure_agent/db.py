@@ -115,6 +115,37 @@ def find_products_by_sku_similarity(
     return _hydrate_scored(rows)
 
 
+def get_products_by_skus(conn: psycopg.Connection, skus: list[str]) -> dict[str, Product]:
+    """Bulk lookup by SKU. Returns a dict keyed by SKU; missing rows are simply absent."""
+    if not skus:
+        return {}
+    rows = conn.execute("SELECT * FROM products WHERE sku = ANY(%s)", (skus,)).fetchall()
+    return {r["sku"]: Product.model_validate(r) for r in rows}
+
+
+def search_products(conn: psycopg.Connection, query: str, limit: int = 20) -> list[Product]:
+    """Typeahead search across SKU and description.
+
+    Plain ``ILIKE %q%`` against both columns; SKU hits sort first since a reviewer
+    typing in the override picker is usually typing a SKU prefix. Empty query
+    returns the first ``limit`` products by SKU so the picker is never blank on
+    open.
+    """
+    pattern = f"%{query}%" if query else "%"
+    rows = conn.execute(
+        """
+        SELECT *,
+            CASE WHEN sku ILIKE %s THEN 0 ELSE 1 END AS sku_match
+        FROM products
+        WHERE sku ILIKE %s OR description ILIKE %s
+        ORDER BY sku_match, sku
+        LIMIT %s
+        """,
+        (pattern, pattern, pattern, limit),
+    ).fetchall()
+    return [Product.model_validate({k: v for k, v in r.items() if k != "sku_match"}) for r in rows]
+
+
 def find_products_by_description_similarity(
     conn: psycopg.Connection,
     description: str,

@@ -34,8 +34,9 @@ from fastapi.responses import PlainTextResponse
 from langgraph.checkpoint.postgres import PostgresSaver
 from pydantic import BaseModel, Field
 
-from procure_agent.db import connect
+from procure_agent.db import connect, get_products_by_skus, search_products
 from procure_agent.graph import build_graph
+from procure_agent.schemas import Product
 from procure_agent.state import (
     HumanDecision,
     LineAction,
@@ -116,6 +117,14 @@ class RunSnapshot(BaseModel):
     fixture_filename: str | None = None
     quote: dict[str, Any] | None = None
     matches: list[MatchResult] = Field(default_factory=list)
+    matched_products: dict[str, Product] = Field(
+        default_factory=dict,
+        description=(
+            "Catalog rows for every SKU referenced by ``matches``, keyed by SKU. "
+            "Bundled into the snapshot so the UI can render per-line master detail "
+            "in one fetch."
+        ),
+    )
     human_decision: HumanDecision | None = None
 
 
@@ -134,12 +143,19 @@ def _status_for(snapshot_next: tuple[str, ...]) -> str:
 def _to_snapshot(thread_id: str, values: dict, next_nodes: tuple[str, ...]) -> RunSnapshot:
     """Serialize the relevant parts of state for the API response."""
     quote = values.get("quote")
+    matches: list[MatchResult] = values.get("matches", [])
+    matched_skus = sorted({m.matched_sku for m in matches if m.matched_sku})
+    matched_products: dict[str, Product] = {}
+    if matched_skus:
+        with connect() as conn:
+            matched_products = get_products_by_skus(conn, matched_skus)
     return RunSnapshot(
         thread_id=thread_id,
         status=_status_for(next_nodes),
         fixture_filename=values.get("fixture_filename"),
         quote=quote.model_dump(mode="json") if quote else None,
-        matches=values.get("matches", []),
+        matches=matches,
+        matched_products=matched_products,
         human_decision=values.get("human_decision"),
     )
 
@@ -204,6 +220,14 @@ def get_fixture_source(filename: Annotated[str, PathParam()]) -> str:
     if path.suffix not in SOURCE_EXTS or not path.is_file():
         raise HTTPException(status_code=404, detail=f"fixture not found: {filename}")
     return path.read_text(encoding="utf-8")
+
+
+@app.get("/products/search", response_model=list[Product])
+def products_search(q: str = "", limit: int = 20) -> list[Product]:
+    """Typeahead search across SKU and description for the override picker."""
+    capped = max(1, min(limit, 50))
+    with connect() as conn:
+        return search_products(conn, q.strip(), limit=capped)
 
 
 @app.post("/runs", response_model=RunSnapshot)

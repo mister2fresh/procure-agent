@@ -9,16 +9,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { LineDecision, MatchResult, Quote } from "@/lib/schemas";
+import type { LineDecision, MatchResult, Product, Quote } from "@/lib/schemas";
 
 export function DecisionForm({
   threadId,
   quote,
   matches,
+  matchedProducts,
 }: {
   threadId: string;
   quote: Quote;
   matches: MatchResult[];
+  matchedProducts: Record<string, Product>;
 }): React.ReactElement {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -70,6 +72,7 @@ export function DecisionForm({
             key={match.line_index}
             match={match}
             line={quote.line_items[match.line_index]}
+            matchedProduct={match.matched_sku ? (matchedProducts[match.matched_sku] ?? null) : null}
             state={perLine[match.line_index]}
             onChange={(next) => setPerLine((prev) => ({ ...prev, [match.line_index]: next }))}
           />

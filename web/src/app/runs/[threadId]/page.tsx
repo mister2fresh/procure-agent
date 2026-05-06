@@ -61,7 +61,12 @@ export default async function RunPage({
         )}
         <div>
           {snapshot.status === "pending_approval" ? (
-            <DecisionForm threadId={threadId} quote={snapshot.quote} matches={snapshot.matches} />
+            <DecisionForm
+              threadId={threadId}
+              quote={snapshot.quote}
+              matches={snapshot.matches}
+              matchedProducts={snapshot.matched_products}
+            />
           ) : snapshot.status === "completed" ? (
             <PoPreview quote={snapshot.quote} matches={snapshot.matches} />
           ) : (
