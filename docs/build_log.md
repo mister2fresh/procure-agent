@@ -853,3 +853,25 @@ Domain code (approval_node) trusts these and doesn't double-check. Operator typo
 **Backlog updates** (in `procure-agent-handoff.md`): the random fresh-quote generator and the file-upload entries now reference Next.js, not Streamlit. Newly captured items the new architecture absorbs without rework: NextAuth, multi-tenant scoping, real-time SSE progress while extraction runs, MCP server wrap of the same FastAPI surface.
 
 **Where this leaves Day 5.** Frontend and API both shipped to a smoke-tested local state. Day 6 is the actual Railway deploy + a README rewrite that frames the API surface as the product, not the script behind a UI.
+
+## 2026-05-06 — Railway deploy
+
+Stack live end-to-end on Railway: Postgres + api + web in one project. Path from green-build to live URL surfaced five Railway-specific landmines, each one a single-line config change.
+
+**Config landmines, in order hit.**
+1. `uv.lock` was in `.gitignore` (Python-template default). Railway clones from GitHub, so the Dockerfile's `COPY pyproject.toml uv.lock ./` failed at the build step. Removed the line, committed the lockfile.
+2. `startCommand` runs without a shell, so `--port $PORT` was passed literally. Wrapped in `sh -c '...'` so `$PORT` expands.
+3. `DATABASE_URL` reference variable resolved to a literal string until set via Railway's "Add Reference" UI rather than typed by hand. Typed references look identical in the value cell but don't always bind.
+4. `${{api.PORT}}` doesn't auto-resolve across services — Railway only injects `PORT` into the runtime env of the service that owns it. Set `PORT=8000` explicitly on the api service so the cross-service reference (and the in-container `$PORT`) both resolve.
+5. Railway's private network is IPv6-only. `--host 0.0.0.0` makes web→api fail with `ECONNREFUSED`. Switched to `--host ::`. Railway's healthcheck probe then started failing — the `::` socket in the container did not accept the IPv4 probe. Dropped `healthcheckPath` from `railway.toml`; private-network traffic is what matters, the probe was gravy.
+
+**Final `railway.toml` shape (api).**
+- `preDeployCommand = "uv run python scripts/bootstrap_prod_db.py"` runs migrations + LangGraph checkpoint setup before every uvicorn start. Idempotent, so leaving it in permanently means new migrations auto-apply on push.
+- `startCommand = "sh -c 'uv run --no-dev uvicorn procure_agent.api:app --host :: --port $PORT'"` — IPv6 binding, shell-expanded port.
+- No healthcheck.
+
+**Web service config.**
+- `API_INTERNAL_URL = http://api.railway.internal:8000` — Railway's private DNS resolves the api service's IPv6 address; port hardcoded to match the explicit `PORT=8000` on api.
+- `node server.js` start command unchanged; Next.js standalone reads `PORT` from env directly.
+
+**Smoke test.** Public web URL renders the fixture-picker home page. Server component fetches `/fixtures` from the api over the private network. No errors in either service's runtime logs.
