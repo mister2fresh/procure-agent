@@ -72,52 +72,50 @@ export function ProductCombobox({
       <Label htmlFor={inputId} className="text-xs">
         Override SKU — search the product master
       </Label>
-      <div className="relative">
-        <Input
-          id={inputId}
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            onChange(e.target.value);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          placeholder="Search by SKU or description"
-          className="font-mono"
-          autoComplete="off"
-        />
-        {open ? (
-          <div className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-input bg-popover shadow-md">
-            {loading && results.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground">Searching…</div>
-            ) : results.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground">No matches</div>
-            ) : (
-              <ul className="py-1 text-sm">
-                {results.map((p) => (
-                  <li key={p.sku}>
-                    <button
-                      type="button"
-                      onClick={() => pick(p)}
-                      className={cn(
-                        "flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left",
-                        "hover:bg-accent hover:text-accent-foreground",
-                        p.sku === value ? "bg-accent/40" : "",
-                      )}
-                    >
-                      <span className="font-mono text-xs">{p.sku}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {p.description}
-                        {p.pack_size ? ` · ${p.pack_size}` : ""} · {p.uom}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : null}
-      </div>
+      <Input
+        id={inputId}
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder="Search by SKU or description"
+        className="font-mono"
+        autoComplete="off"
+      />
+      {open ? (
+        <div className="max-h-64 w-full overflow-auto rounded-md border border-input bg-popover shadow-sm">
+          {loading && results.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-muted-foreground">Searching…</div>
+          ) : results.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-muted-foreground">No matches</div>
+          ) : (
+            <ul className="py-1 text-sm">
+              {results.map((p) => (
+                <li key={p.sku}>
+                  <button
+                    type="button"
+                    onClick={() => pick(p)}
+                    className={cn(
+                      "flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left",
+                      "hover:bg-accent hover:text-accent-foreground",
+                      p.sku === value ? "bg-accent/40" : "",
+                    )}
+                  >
+                    <span className="font-mono text-xs">{p.sku}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {p.description}
+                      {p.pack_size ? ` · ${p.pack_size}` : ""} · {p.uom}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
