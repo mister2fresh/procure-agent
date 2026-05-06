@@ -1,10 +1,10 @@
 # build log
 
-Real-time observations through the 7-day build. Append-only. What worked, what broke, failure-mode notes, snippets of failed runs. Day 6 README's production-failure section gets sourced from here.
+Append-only technical record. What worked, what broke, failure-mode notes.
 
-## 2026-05-03 — Day 1
+## 2026-05-03
 
-Pre-loop session. Designed the post-extraction quote schema (`src/procure_agent/schemas.py`)
+Designed the post-extraction quote schema (`src/procure_agent/schemas.py`)
 and authored three starter fixtures in `data/synthetic_quotes/` to point the ReAct loop at:
 
 - `01_aloe_corp_clean_tabular` — baseline tabular, single line item (AL101 / 50 kg / $300/kg)
@@ -17,36 +17,33 @@ Schema decisions worth remembering:
   (`kg`, `lb`, `each`, etc.), SKUs uppercase, dates ISO. Faithfulness check is semantic, not
   literal, so we don't preserve surface casing in the structured output.
 - Fixture convention: each `*.txt` has a paired `*.expected.json` golden file. Same shape will
-  back `quotes.line_items` JSONB on Day 2 and the Day 4 eval harness.
+  back `quotes.line_items` JSONB and the eval harness.
 - Schema fields that landed beyond the minimal core: `payment_terms`, `shipping_terms`,
   `min_order_qty`. Suppliers in real procurement always state these; cheaper to model now
-  than retrofit Day 3.
+  than retrofit later.
 - `requested_sku` and `supplier_sku` both nullable. Substitution case = both populated and ≠.
 
 ReAct loop deferred to next session. Anthropic API key + LangSmith account need to land in
 `.env` before the loop runs.
 
-Second session same day. Scaffolded `src/procure_agent/agent.py` with the from-scratch
+Scaffolded `src/procure_agent/agent.py` with the from-scratch
 ReAct loop infrastructure: `Anthropic` client, `MODEL = claude-sonnet-4-6`, `read_file`
 tool (schema + path-scoped handler with traversal guard targeting `data/synthetic_quotes/`),
-and the `run()` loop itself. System prompt and `__main__` entry point are the user's
-to write — see TODO markers at `agent.py:84` and `agent.py:125`.
+and the `run()` loop itself.
 
 Reasoning notes worth keeping:
-- The minimal SDK loop is the right shape for Day 1. LangGraph translation, HITL
-  pause/resume, and Postgres checkpointing are Day 3+ concerns and explicitly out of
-  scope for the from-scratch loop. Surfacing those concerns prematurely added confusion
-  that had to be walked back; recalibrate to the day's scope first when the user asks
-  "will this work?"
+- The minimal SDK loop is the right shape at this stage. LangGraph translation, HITL
+  pause/resume, and Postgres checkpointing are deferred concerns and explicitly out of
+  scope for the from-scratch loop.
 - `read_file` is path-scoped via `Path.resolve()` + `QUOTES_DIR not in target.parents`
   rather than a string `startswith` check. Keeps symlinks and `..` segments honest.
 - Tool result `content` is `json.dumps(...)`'d so dict/list returns survive intact rather
   than getting `repr()`'d. Trivial now (`read_file` returns str), but the convention
-  carries forward to Day 3 tools that return structured data.
+  carries forward to later tools that return structured data.
 
 No live run yet, so no failure mode observed. That's tomorrow's first task.
 
-Third session same day. System prompt + few-shot scaffolding landed; loop entry point still TODO.
+System prompt + few-shot scaffolding landed; loop entry point still TODO.
 
 Schema deltas:
 - `QuoteLineItem.pack_size: str | None` — pack info ("4 oz", "case of 12") is a structured field, not a description suffix. Real procurement primitive: needed for matching, ordering, cost-per-unit calcs.
@@ -65,14 +62,14 @@ Few-shot example pattern: held-out demo fixture lives in `data/prompt_examples/`
 
 Untested at runtime. The prompt has rules and a demo, the loader produces a valid string, all goldens validate against the updated schema — but Sonnet 4.6 has never seen any of it. The strict-JSON output contract, the symbol-only-currency rule, the customer-ref-vs-RFQ discrimination, and the demo's anchoring effect all need to survive contact with the model. First live run + observations land in the next session along with the `__main__` driver.
 
-Fourth session same day. Reopened the per-transaction-ref decision from earlier today before more was built on top.
+Reopened the per-transaction-ref decision before more was built on top.
 
 Schema delta:
 - `Quote.rfq_ref: str | None` — buyer-side transaction reference this quote responds to (RFQ #, "Buyer Ref:", "Your Ref:", "Buyer Reference:"). Distinct from `customer_ref` (the persistent customer ID).
 
 The earlier session's plan was to call this field `buyer_ref` if/when it came back. That name was wrong: `buyer_ref` reads as a synonym for `customer_ref` — both name "the buyer/customer's identifier from the supplier's POV." The per-transaction concept needs a distinct name that signals transaction-specificity. Settled on per-document-type naming: `rfq_ref` on Quote; PO and Invoice models, when they arrive, will carry `po_ref` / `invoice_ref`. Same pattern as `supplier_ref` already being document-type-scoped. A downstream doc can also carry an upstream ref (a PO might carry `rfq_ref` linking back to the originating RFQ) without overloading a single polymorphic field.
 
-Cost of doing it now vs. deferring: every fixture already has the data in source text, the prompt was already spending a paragraph telling the model to throw it away, and post-Day-3 (Postgres) it would have meant a column migration. ~30 min of mechanical edits today.
+Cost of doing it now vs. deferring: every fixture already has the data in source text, the prompt was already spending a paragraph telling the model to throw it away, and post-Postgres it would have meant a column migration. ~30 min of mechanical edits.
 
 Goldens reconciled:
 - Demo `marian_demo` → `rfq_ref: "RFQ-8842"` (the line that was previously dropped).
@@ -83,15 +80,15 @@ Prompt updates: `customer_ref` bullet's "dropped entirely" clause flipped to "th
 
 Still untested at runtime. Adds another extraction surface to the eval set; whether the model picks up the RFQ from a prose subject line vs. only from header-shaped lines is an unknown.
 
-Fifth session same day. `__main__` driver landed; loop is now end-to-end runnable.
+`__main__` driver landed; loop is now end-to-end runnable.
 
 Driver shape: `sys.argv[1]` (default `01_aloe_corp_clean_tabular.txt`) → `run(...)` → `_extract_json_block` → `Quote.model_validate_json` → `model_dump_json(indent=2)` to stdout. Skipped argparse — one positional arg doesn't earn a parser. `_extract_json_block` filters text blocks, regex-matches the fenced ```json``` from the output contract, and raises `ValueError` with the full response inlined when no block is found. Validation is fail-fast on purpose: each failure mode (bad fixture name, no JSON block, wrong shape, max_turns) raises a distinct exception type so the eventual eval harness can switch on them.
 
-Prompt change: `read_file` failure clause flipped from "emit a JSON object with all fields null" to "emit a single line `ERROR: <short description>` and stop". The all-null instruction would've failed `Quote` validation anyway (`supplier_name`, `line_items`, etc. are non-optional). Considered relaxing the schema to allow null on those fields — rejected. The schema mirrors what lands in `quotes.line_items` JSONB on Day 2; loosening domain types to model a *tool failure* would force every downstream consumer to null-check fields that are genuinely required for a real quote. Tool failures are "no extraction happened," not "extraction with missing fields." The `ERROR:` line short-circuits to `_extract_json_block`'s ValueError path and surfaces the model's description verbatim. If the eval harness later wants structured failure, add an `ExtractionResult = Quote | ExtractionError` union — but only when actually needed.
+Prompt change: `read_file` failure clause flipped from "emit a JSON object with all fields null" to "emit a single line `ERROR: <short description>` and stop". The all-null instruction would've failed `Quote` validation anyway (`supplier_name`, `line_items`, etc. are non-optional). Considered relaxing the schema to allow null on those fields — rejected. The schema mirrors what lands in `quotes.line_items` JSONB once Postgres is in place; loosening domain types to model a *tool failure* would force every downstream consumer to null-check fields that are genuinely required for a real quote. Tool failures are "no extraction happened," not "extraction with missing fields." The `ERROR:` line short-circuits to `_extract_json_block`'s ValueError path and surfaces the model's description verbatim. If the eval harness later wants structured failure, add an `ExtractionResult = Quote | ExtractionError` union — but only when actually needed.
 
 Live run pending — driver is wired and the API key is in place; first run + observations land in the next session.
 
-Sixth session same day. First live runs of all three eval fixtures + design-principle clarification + reconciliation of goldens to match.
+First live runs of all three eval fixtures + design-principle clarification + reconciliation of goldens to match.
 
 End-to-end loop worked on first try. No infrastructure surprises: `.env` loaded, two-turn extraction on every fixture (one `read_file` tool call, one fenced-JSON emission), `Quote.model_validate_json` accepted every output, `_extract_json_block` regex matched. The infra-design choices from earlier sessions held — fail-fast validation, ERROR-line failure path, path-scoped tool — none needed adjusting.
 
@@ -125,11 +122,11 @@ Things that worked on first run, worth noting because they could have failed:
 - `pack_size` split from `description` on fixture 03 (`"Microbe Complete"` + `pack_size: "4 oz"`) — no description-suffix folding.
 - `min_order_qty` stripped units (`"30 units"` → `"30"`).
 
-Two days of design work paid off in one session of clean runs. Loop is solid against the small corpus. Next: expand corpus to ~10-15 fixtures (tier pricing, multi-line, missing-field cases), wire the pytest eval harness with field-aware comparators, then translate to LangGraph.
+Loop is solid against the small corpus. Next: expand corpus to ~10-15 fixtures (tier pricing, multi-line, missing-field cases), wire the pytest eval harness with field-aware comparators, then translate to LangGraph.
 
-## 2026-05-03 — Day 1, evening (corpus expansion batch 1)
+## 2026-05-03 — corpus expansion batch 1
 
-User dropped 6 new fixtures covering tier pricing, multi-currency, MOQ-in-prose, SKU substitution, missing-required-fields, and stacked exceptions. Format expansion: `.csv`, `.docx`, `.md` alongside the original `.txt`.
+Six new fixtures cover tier pricing, multi-currency, MOQ-in-prose, SKU substitution, missing-required-fields, and stacked exceptions. Format expansion: `.csv`, `.docx`, `.md` alongside the original `.txt`.
 
 **`read_file` tool gained docx support.** Added `python-docx`. New `_read_docx` helper walks the body in document order — paragraphs as lines, tables as pipe-delimited rows. Dispatches on suffix in `read_file`; `.txt`/`.csv`/`.md` still pass through `read_text()` unchanged. Smoke-tested on both docx fixtures (Precision Bearings, NutriGrow); table rows render cleanly and document-order interleaving holds.
 
@@ -139,7 +136,7 @@ Resolution: dropped the validator entirely. `unit_price` and `tier_prices[].unit
 
 Lesson worth keeping: **schema-layer normalization is brittle when the domain has wider precision than the canonical form assumes.** The prompt already commits the model to source-precision verbatim; the schema validator was overriding that — solving a real problem (golden-comparison stability) at the wrong layer. Comparators belong in the harness; the schema's job is structure, not display.
 
-**Goldens scaffolded for 5 of 6.** Acme deferred — it's a price list with no order quantity stated, and the schema requires non-null `quantity`. Three resolution paths possible (synthesize a fake quoted qty, add a `quote_type` discriminator, or ERROR-on-extract). User chose to keep the fixture and skip the golden until v1.x adds the schema branch — accepts that we lose one fixture's worth of eval signal in exchange for not inventing data.
+**Goldens scaffolded for 5 of 6.** Acme deferred — it's a price list with no order quantity stated, and the schema requires non-null `quantity`. Three resolution paths possible (synthesize a fake quoted qty, add a `quote_type` discriminator, or ERROR-on-extract). Resolution: keep the fixture and skip the golden until v1.x adds the schema branch. One fixture's worth of eval signal lost in exchange for not inventing data.
 
 **Sidecar `.notes.md` per fixture** captures the downstream-eval rubric items the v1 schema can't carry: NCNR clauses, carton-rounding rules, substitution-acceptance routing, FX-estimate-is-reference-only, missing-freight completeness flags, faithfulness math reconciliations. These become eval targets once reconciliation/HITL/PO-generation nodes land in step 3 (LangGraph translation). Format converged on 5 sections: v1 extraction caveats, exception-flagged-when-warranted, faithfulness, completeness/HITL routing, inventory matching.
 
@@ -153,16 +150,16 @@ No agent runs against the new fixtures yet — saved for next session. Goldens a
 
 Next: pull next batch of fixtures, then go wide on agent-run testing.
 
-## 2026-05-03 — Day 1, late evening (corpus expansion batch 2 goldens)
+## 2026-05-03 — corpus expansion batch 2 goldens
 
-User dropped 6 more fixtures targeted at extraction edge cases — refs, pack-size variations, date formats, multi-row qty breaks, lead-time prose, and a revised-quote ref trap. Same session wrote `.expected.json` for all 6. No `.notes.md` sidecars this batch — fixtures are narrower and the wrinkles are encoded in the goldens directly.
+Six more fixtures target extraction edge cases — refs, pack-size variations, date formats, multi-row qty breaks, lead-time prose, and a revised-quote ref trap. `.expected.json` for all 6 landed in the same pass. No `.notes.md` sidecars this batch — fixtures are narrower and the wrinkles are encoded in the goldens directly.
 
 **Convention reinforcement (batch 1 → batch 2 carry-over):**
 - Non-canonical UoM tokens (`bag`, `bale`, `pail`, `drum`, `tote`) → `uom: "each"` (or `"case"` when literal); pack form preserved in `pack_size`.
 - Bare `$` symbol → `currency: null`; explicit ISO code → that code.
 - `customer_ref` (persistent customer ID) and `rfq_ref` (per-transaction) stay separate even when both restate in a footer reminder line.
 
-**Pack-size placement rule pinned:** UoM-column word (`bag`/`bale`/`drum`) goes into `pack_size` *only when not already in description*. Pacific amendments' `PEAT-BALE-3.8` left "bale" in description; fixture 7's `PM-C-2.2` pulled "bale" into `pack_size: "2.2 cu ft bale"` because the description didn't carry it. User validated as provisional. Saved as feedback memory.
+**Pack-size placement rule pinned:** UoM-column word (`bag`/`bale`/`drum`) goes into `pack_size` *only when not already in description*. Pacific amendments' `PEAT-BALE-3.8` left "bale" in description; fixture 7's `PM-C-2.2` pulled "bale" into `pack_size: "2.2 cu ft bale"` because the description didn't carry it. Provisional pending more fixtures.
 
 **Judgment calls, batch-2-specific:**
 - Fixture 9 (Northstar): slash-format date `05/04/2026` only appears in prose, kept verbatim in `raw_notes`. Structured `issued_date` / `valid_through` come from unambiguous `dd-MMM-yyyy` and `Month DD, YYYY` formats elsewhere in the email. Locale ambiguity not pinned by the golden — it's a downstream-normalization concern.
@@ -170,11 +167,9 @@ User dropped 6 more fixtures targeted at extraction edge cases — refs, pack-si
 - Fixture 12 (Riverway revised quote): `supplier_ref` = live ref `"RW-2026-0419-R2"` (not the prominent old ref). Item 2 qty = 12; the parenthetical "(was qty 8 in original)" did not bleed into the line item. Supersession context lives in `raw_notes`.
 - Fixture 11 (Harbor): per-line lead-time status went into `notes` per item (`"in stock — can ship today"`, `"8-10 week lead time — must commit by 5/15"`, etc.). `valid_through` derived from "Valid: 30 days from quote date" → 2026-05-29.
 
-**Caught one near-miss:** initial fixture 7 draft was sanity-checked by user before write — flagged me to look at lines 55-56. Nothing wrong there in the end (BM-50 unit_price 34.25 verbatim from source, currency null per bare-$ convention). Worth the pause anyway; verbatim self-check beats trusting parallel-write output.
-
 No agent runs yet against batch 2 either. Next: agent test pass across full corpus (batches 1 + 2), then pytest harness.
 
-## 2026-05-03 — Day 1, late evening (first agent pass on batch 2 corpus)
+## 2026-05-03 — first agent pass on batch 2 corpus
 
 First end-to-end agent runs on the batch-2 fixtures. Started 0/6 byte-matching the goldens; ended with 1 clean match (fixture 10) and the rest narrowed to a single class of remaining drift (signature stripping). Four prompt rules added en route.
 
@@ -187,8 +182,8 @@ First end-to-end agent runs on the batch-2 fixtures. Started 0/6 byte-matching t
 **Four conventions decided this session and encoded in the prompt:**
 
 1. **valid_through derivation reversed.** Old prompt rule: never derive from issued_date. New rule: derive when source states explicit math (`"valid 30 days from quote date"`, `"expires 2 weeks from issue"`); strict-null only when source is silent or vague (`TBD`/`upon request`). Triggered by fixture 11 where the golden encoded the derived date and the prompt forbade it — golden was right, prompt was wrong.
-2. **Multi-row same-SKU is not a tier table.** Original golden 10 collapsed same-SKU rows into one line item with `tier_prices` populated and the top-tier qty as headline. Considered summing-as-headline (user's first instinct) — rejected because differing prices on same-SKU rows is the signature of supplier tier offers, not buyer split-lot orders, and summing invents a buyer commitment that isn't in the source. Settled rule: each CSV/table row is its own `QuoteLineItem`; `tier_prices` only populates when a single row carries an inline tier-break statement. Faithful row-by-row extraction; downstream decides duplicates. Golden 10 rewritten from 3 line items to 5.
-3. **pack_size UoM-column rule moved from memory into the prompt.** When a CSV/table has a separate UoM column with a packaging noun (`bag`, `bale`, `pail`, `drum`, `tote`), fold it into `pack_size` only if not already in the description. Rule was previously only in memory (batch 2 review); model didn't have it, so output drifted across fixtures 07, 08, 10. Same edit also tightened the `uom` rule to enumerate the packaging nouns that route to `pack_size + uom: each`, since "what's a canonical UoM" was implicit.
+2. **Multi-row same-SKU is not a tier table.** Original golden 10 collapsed same-SKU rows into one line item with `tier_prices` populated and the top-tier qty as headline. Summing-as-headline was considered and rejected: differing prices on same-SKU rows is the signature of supplier tier offers, not buyer split-lot orders, and summing invents a buyer commitment that isn't in the source. Settled rule: each CSV/table row is its own `QuoteLineItem`; `tier_prices` only populates when a single row carries an inline tier-break statement. Faithful row-by-row extraction; downstream decides duplicates. Golden 10 rewritten from 3 line items to 5.
+3. **pack_size UoM-column rule pinned into the prompt.** When a CSV/table has a separate UoM column with a packaging noun (`bag`, `bale`, `pail`, `drum`, `tote`), fold it into `pack_size` only if not already in the description. Rule had only existed as a session-note convention; the model didn't have it, so output drifted across fixtures 07, 08, 10. Same edit also tightened the `uom` rule to enumerate the packaging nouns that route to `pack_size + uom: each`, since "what's a canonical UoM" was implicit.
 4. **Currency: do not default to USD.** Existing rule said bare `$` is insufficient, but the model still defaulted to USD on fixture 07. Tightened with explicit "do not default to USD even if the supplier appears to be US-based."
 
 **Re-run results:** fixture 10 byte-clean (was 13 diffs). Fixtures 07/08/09/11 down to 1-2 diffs each, almost entirely raw_notes signature retention. Fixture 12 still drifts on `[ADDED]` verbatim and revision-prose paraphrase.
@@ -204,7 +199,7 @@ First end-to-end agent runs on the batch-2 fixtures. Started 0/6 byte-matching t
 
 **Next:** settle signature keep/skip; either flip the prompt or rewrite the four goldens. Then sweep batch 1 (remaining ~6 fixtures) for the same drift classes. Harness wiring after.
 
-## 2026-05-03 — Day 1, late evening (signature keep/skip settled)
+## 2026-05-03 — signature keep/skip settled
 
 Decision: **KEEP signatures verbatim in `raw_notes`** (current prompt rule stands). No prompt edit, no golden rewrites. Goldens 07/09/11/12 will get signature blocks reinstated when their next pass runs — defer that mechanical fix to the batch-1 sweep session so it lands as one batch of golden updates rather than scattered.
 
@@ -214,7 +209,7 @@ Trigger for revisit: handoff doc §week 3 (Supplier onboarding) annotated with "
 
 Header admin metadata (`Salesperson:`, `Freight: TBD`) is the same shape of question but separate — those aren't signature data, they're document-header attribution. Will fall out of the batch-1 sweep when fresh fixtures with similar headers either get goldens that include them or push back on the prompt rule. No standalone decision needed yet.
 
-## 2026-05-03 — Day 1, late evening (batch-1 sweep)
+## 2026-05-03 — batch-1 sweep
 
 Eight batch-1 fixtures end-to-end (1/2/3 + Pacific / TerraGreen / Meridian / Precision / NutriGrow). Two passes, ~14 API calls. Three convention calls landed (rule A on per-line `notes` scope, rule B reframed for pack_size/UoM independence, rule C on header admin metadata kept). Four golden updates and signature reinstatement in 07/09/11/12.
 
@@ -222,7 +217,7 @@ Eight batch-1 fixtures end-to-end (1/2/3 + Pacific / TerraGreen / Meridian / Pre
 
 1. **Rule A — `line.notes` scope.** `line.notes` populates ONLY when the source structurally attaches commentary to a single line: per-line column (`Status: in stock`), sub-bullet under that line, `Lead:` field. Global notes-section prose that *references* line numbers (`"Line 5 ships separately"`, `"MOQ for Lines 1 and 2 is 20"`) stays in `raw_notes` verbatim. Goldens 07/09/Pacific/TerraGreen/Meridian/Precision already match this; Harbor (golden 11) is the precedent for the "structurally per-line" case (Status field under each item).
 
-2. **Rule B — pack_size/UoM independence.** The first cut had a too-broad "canonical UoM = no pack split" carve-out. User flagged the 55-gal-drum-charged-per-gallon counterexample. Reframed: pack_size is the *pack constraint* (the unit you must order in); UoM is *how it is charged*. They are independent and can coexist (`pack_size: "55-gal drum"`, `uom: "gal"`). Triggers, in priority: (1) packaging noun in description → lift verbatim pack phrase to `pack_size`, strip from description; (2) unit-pack form ("case of 12") → lift verbatim; (3) packaging-noun UoM column + size in description and no description noun → combine ("50 lb" + col=BAG → "50 lb bag"). When none fire (canonical UoM column + measurement-only description, no packaging noun, e.g. "1 gallon" + uom GAL), `pack_size` stays null.
+2. **Rule B — pack_size/UoM independence.** The first cut had a too-broad "canonical UoM = no pack split" carve-out. The 55-gal-drum-charged-per-gallon counterexample broke it. Reframed: pack_size is the *pack constraint* (the unit you must order in); UoM is *how it is charged*. They are independent and can coexist (`pack_size: "55-gal drum"`, `uom: "gal"`). Triggers, in priority: (1) packaging noun in description → lift verbatim pack phrase to `pack_size`, strip from description; (2) unit-pack form ("case of 12") → lift verbatim; (3) packaging-noun UoM column + size in description and no description noun → combine ("50 lb" + col=BAG → "50 lb bag"). When none fire (canonical UoM column + measurement-only description, no packaging noun, e.g. "1 gallon" + uom GAL), `pack_size` stays null.
 
 3. **Rule C — header admin metadata.** `Salesperson:`, `Freight: TBD`, `Lead Time:`, `GST/HST:` and similar header attribution fields stay in `raw_notes` verbatim, same disposition as signatures. Goldens 07 and Pacific updated to include them. Revisit if/when downstream onboarding workflow wants structured fields for any of them.
 
@@ -258,9 +253,9 @@ Round 2 (after prompt + golden edits): 2/8 byte-clean (01_aloe, 03_rootwise). 02
 
 **Sequence note:** Three rounds of agent runs across 8 fixtures used ~16 API calls and surfaced enough signal for three convention decisions, four mechanical golden fixes, and four prompt-clarification candidates. The "run-then-diff" loop continues to outperform what a harness-only run would surface, but is starting to bump up against rate limits — one Precision retry needed a 60s cooldown when 8 fixtures fired in parallel hit the 30k input-tokens/min cap. Sequential runs would dodge this; parallel + retry-on-429 is fine for now.
 
-## 2026-05-04 — Day 2 (rule A carve-out + substitution-SKU prompt edits, validation sweep)
+## 2026-05-04 — rule A carve-out + substitution-SKU prompt edits, validation sweep
 
-Picked the two highest-confidence prompt edits from the four candidates parked last session and held off on the other two pending harness signal.
+Picked the two highest-confidence prompt edits from the four candidates parked the prior session; held the other two pending harness signal.
 
 **Prompt edits in `src/procure_agent/prompts.py`:**
 1. **Rule A carve-out (`line.notes` rule)**: appended "**This rule scopes `line.notes` only.** Structured fields (`min_order_qty`, `payment_terms`, `shipping_terms`, `valid_through`, etc.) still extract from notes-section prose when stated there — the prohibition is on lifting prose into per-line `notes`, not on extracting structured values regardless of source location." Targets the Meridian MOQ regression where rule A had collapsed structured-field extraction along with line.notes lifting.
@@ -276,7 +271,7 @@ Both targeted edits landed cleanly:
 - **Edit #1 worked.** Meridian MOQs all match golden (L1=20, L2=20, L6=10, others null). The carve-out language successfully prevented MOQ extraction from being suppressed by rule A.
 - **Edit #4 worked.** NutriGrow line 1: `requested_sku=KMEAL-50, supplier_sku=KMEAL-44` — exactly the golden.
 
-Per-fixture state post-edits: 2/8 byte-clean (01_aloe, 03_rootwise), same as round 2 last session. 02_aloe down to 1 cosmetic diff (`food-grade` casing). Six fixtures with various drift; classes summarized below.
+Per-fixture state post-edits: 2/8 byte-clean (01_aloe, 03_rootwise), same as round 2 of the prior sweep. 02_aloe down to 1 cosmetic diff (`food-grade` casing). Six fixtures with various drift; classes summarized below.
 
 **Two golden artifacts surfaced and fixed in `quote_meridian_supply_2026-04-24.expected.json`:**
 - `tier_prices` had been hand-written with single-line dicts (`{"min_qty": "100", "unit_price": "0.32"}`); agent emits `model_dump_json(indent=2)` multi-line. Reformatted golden to match the Pydantic serializer.
@@ -298,7 +293,7 @@ After golden fix, Meridian's only real drift is one TWINE-NAT-9K line: agent lef
 
 **Next:** harness wiring is the next big step. Manual diffing has now twice surfaced the same drift classes; further sweeps will not surface new rules — only more instances of the held drift. Field-aware comparator (numeric Decimal equality, prose-whitespace tolerance, raw_notes content-presence rather than verbatim) will let us distinguish "real new drift" from "known cosmetic noise" in seconds rather than minutes-of-manual-eyeballing per fixture.
 
-## 2026-05-04 — Day 2 (baseline capture + comparator line-key bug)
+## 2026-05-04 — baseline capture + comparator line-key bug
 
 First clean baseline through `evals/run.py` on the full 14-fixture corpus. Sequential, no 429s. Artifact: `evals/runs/20260504T142352Z.json`.
 
@@ -331,13 +326,13 @@ Fix: replaced dict-keyed match with bucket-by-key + positional pairing within bu
 
 **Held drift classes after fixes (32 mismatches, Bucket C):** pack-noun fold (description ↔ pack_size, 6 mismatches across Quote 07 PEAT, Meridian TWINE, Pacific STRAP — same class flagged twice prior), currency over-default (Precision, 8), substantive `raw_notes` paraphrasing (7), per-line `notes` scoping (5), pack_size ordering (Quote 08, 1), shipping_terms cross-span combine (Quote 09, 1), 02_aloe sentence-cap casing (1). Pack-noun fold remains the highest-ROI prompt-edit candidate; currency over-default jumped into top-1 by count this run on a single fixture.
 
-## 2026-05-04 — Day 2 (continued: Bucket C pack-noun fold, principle reframe, contamination fix)
+## 2026-05-04 — Bucket C pack-noun fold, principle reframe, contamination fix
 
 Took the first Bucket C class — pack-noun fold — through case-by-case inspection. Result: one Bucket A close-out, two real prompt-shape misses, principle reframe applied, train/test contamination averted.
 
 **Per-fixture inspection of the 6 "pack-noun fold" mismatches changed the picture significantly.** The build log called this "6 mismatches across 3 fixtures" treated as one drift class. Reading the actual predicted-vs-golden for each:
 
-- **Quote 07 line 1 (PM-C-2.2 peat):** model lifted `"2.2 cu ft compressed bale"` to pack_size, golden had `"2.2 cu ft bale"` with `"compressed"` left in description. User judgment: model is right — `"compressed"` describes the bale's pack state (compressed bale ≈ 2.2 cu ft, fluffs to ~4 cu ft), so it belongs in pack_size as part of the physical-pack specification. Flipped golden. **2 mismatches close out as Bucket A.**
+- **Quote 07 line 1 (PM-C-2.2 peat):** model lifted `"2.2 cu ft compressed bale"` to pack_size, golden had `"2.2 cu ft bale"` with `"compressed"` left in description. Model is right — `"compressed"` describes the bale's pack state (compressed bale ≈ 2.2 cu ft, fluffs to ~4 cu ft), so it belongs in pack_size as part of the physical-pack specification. Flipped golden. **2 mismatches close out as Bucket A.**
 - **Meridian line 7 (TWINE-NAT-9K):** description `"Natural fiber baling twine, 9000 ft per bale"`, model left it intact, pack_size=null. Trigger 1 of the existing rule literally lists `"per bale"` as an example. Pure compliance gap.
 - **Pacific line 8 (STRAP-PP-58):** description `'Polypropylene Strapping, 5/8" x 9000 ft, machine grade'`, UoM column `ROLL`. Trigger 3 territory but the rule's example is a simple `"50 lb"` + `BAG`; multi-dim size mid-comma-list with flanking adjectives doesn't pattern-match well.
 
@@ -345,7 +340,7 @@ Took the first Bucket C class — pack-noun fold — through case-by-case inspec
 
 **Principle reframe for the pack_size rule (`prompts.py:39–44`).** Rewrote the lead from "captures pack/packaging info" to "the complete physical-pack specification — the dimensions, count, density modifiers, and packaging-form noun that together describe how the product is packed. Kept as a single coherent field. Description carries product identity; pack_size carries how it's packed." Triggers stay as priority-ordered applications of the principle. Trigger 1 examples updated to call out density modifiers and mid-comma-list span extraction; Trigger 3 rewritten with multi-dim size handling and explicit "keep flanking adjectives in description" rule.
 
-**Train/test contamination caught and fixed.** First draft of the reframed rule used three verbatim phrases from the eval set as concrete examples (`"2.2 cu ft compressed bale"` from Quote 07, `"9000 ft per bale"` from Meridian, `'5/8" x 9000 ft'` from Pacific). User flagged it: rule examples in the prompt body that name eval-corpus values are direct train/test contamination — even paraphrased, they teach the model to memorize specific eval strings rather than learn the pattern. Standard practice: **rule wording uses generic/archetypal shapes; concrete instances live only in the held-out demo.** Sanitized to `"40 lb fluffed bale"`, `"800 ft per spool"`, `'3/4" x 6000 ft'` — none in eval. Verified via grep over `data/synthetic_quotes/` that all replacement strings are absent.
+**Train/test contamination caught and fixed.** First draft of the reframed rule used three verbatim phrases from the eval set as concrete examples (`"2.2 cu ft compressed bale"` from Quote 07, `"9000 ft per bale"` from Meridian, `'5/8" x 9000 ft'` from Pacific) — direct train/test contamination, since even paraphrased they teach the model to memorize specific eval strings rather than learn the pattern. Standard practice: **rule wording uses generic/archetypal shapes; concrete instances live only in the held-out demo.** Sanitized to `"40 lb fluffed bale"`, `"800 ft per spool"`, `'3/4" x 6000 ft'` — none in eval. Verified via grep over `data/synthetic_quotes/` that all replacement strings are absent.
 
 **Failure-mode lesson:** **prompt examples are easy contamination vectors when drafting concrete rule examples** — the eval values are top of mind so they leak in. Worth a checklist habit going forward: any time a rule body gets a new concrete example, grep eval before committing.
 
@@ -359,7 +354,7 @@ Both products grepped clean against the eval corpus. The demo's role is concrete
 
 **Next:** harness re-run to see what moves on Meridian + Pacific. Watch for (a) Trigger 1 firing on `"X per bale"` shape (Meridian), (b) Trigger 3 firing on multi-dim mid-description size + UoM-column noun (Pacific), (c) no regression on the 10+ fixtures where pack-noun rules already worked. If the reframe lands, move to currency over-default (next class by count) or substantive `raw_notes` paraphrasing (next class by spread).
 
-## 2026-05-04 — Day 2 (continued: prompt sweep + currency salience regression)
+## 2026-05-04 — prompt sweep + currency salience regression
 
 Took the remaining drift through a coordinated prompt sweep. Result: **95.5% → 98.0% field-match (749/784 → 768/784, +19 fields).** One regression caught and fixed mid-sweep.
 
@@ -381,11 +376,11 @@ Plus 8 raw_notes mismatches (preamble drops, markdown variance) — flagged lowe
 
 **Goldens fix.** Replaced `"pack_size": "50# bag"` × 3 with `"50 lb bag"` in `quote_terragreen_email_2026-04-23.expected.json`.
 
-**Contamination audit caught corpus-verbatim examples in my own draft AND pre-existing in the prompt.** First draft of the counter-rule used `"poly drum liner"`, `"drum pump"`, `"poly tote, 275-gal IBC"`, `"2.2 cu ft compressed bale"` — all verbatim from the eval set (quote_09, quote_12, quote_07). User flagged before write. Re-checked all proposed examples via `rg --no-ignore -i "<term>" data/synthetic_quotes/` — replaced with synthetic equivalents, all grepped clean. **Also caught two pre-existing leaks in the same passage:** `"55-gal drum"` and `"Multi-purpose lubricant, 1 gallon"` were already in the prompt and both verbatim from the corpus (quote_11, quote_meridian). Swapped to `"200-l drum"` / `"Industrial cleaner, 5 liters"` — synthetic, grepped clean.
+**Contamination audit caught corpus-verbatim examples in the new draft AND pre-existing in the prompt.** First draft of the counter-rule used `"poly drum liner"`, `"drum pump"`, `"poly tote, 275-gal IBC"`, `"2.2 cu ft compressed bale"` — all verbatim from the eval set (quote_09, quote_12, quote_07). Re-checked all proposed examples via `rg --no-ignore -i "<term>" data/synthetic_quotes/` — replaced with synthetic equivalents, all grepped clean. **Also caught two pre-existing leaks in the same passage:** `"55-gal drum"` and `"Multi-purpose lubricant, 1 gallon"` were already in the prompt and both verbatim from the corpus (quote_11, quote_meridian). Swapped to `"200-l drum"` / `"Industrial cleaner, 5 liters"` — synthetic, grepped clean.
 
-**Failure-mode lesson — contamination audit needs to cover *existing* prompt content, not just new edits.** Prior session already caught new-example leaks; this session shows old-example leaks survive across editing rounds because the grep habit only triggered on additions. Worth a periodic full-prompt sweep against `data/synthetic_quotes/` to catch latent leakage. The prompt itself is small enough that this is cheap.
+**Failure-mode lesson — contamination audit needs to cover *existing* prompt content, not just new edits.** Old-example leaks survive across editing rounds because the grep habit only triggers on additions. Worth a periodic full-prompt sweep against `data/synthetic_quotes/` to catch latent leakage. The prompt itself is small enough that this is cheap.
 
-**Currency salience regression — 0 → 8 mismatches on `quote_precision_bearings`.** Post-edit harness showed 96.4% net (above baseline despite the regression). Investigation: 8 of 8 lines in precision_bearings predicted `"USD"` despite source containing only `$` symbols and no ISO code (Greenville SC supplier, Reno NV ship-to). Three consecutive single-fixture re-runs all reproduced — not Haiku stochasticity, real prompt regression. The original currency rule's wording (*"Do not default to USD when no ISO code is stated"*) had previously held compliance; my edit lengthened the field-specific list above it, pushing currency further down and degrading attention.
+**Currency salience regression — 0 → 8 mismatches on `quote_precision_bearings`.** Post-edit harness showed 96.4% net (above baseline despite the regression). Investigation: 8 of 8 lines in precision_bearings predicted `"USD"` despite source containing only `$` symbols and no ISO code (Greenville SC supplier, Reno NV ship-to). Three consecutive single-fixture re-runs all reproduced — not Haiku stochasticity, real prompt regression. The original currency rule's wording (*"Do not default to USD when no ISO code is stated"*) had previously held compliance; the edit lengthened the field-specific list above it, pushing currency further down and degrading attention.
 
 **Failure-mode lesson — prompt edits redistribute attention across the whole rule list, not just where you edited.** A localized fix for class A can silently destabilize an unrelated class B that was previously holding by a thin margin. Compliance on long lists is fragile. Mitigation going forward: any harness sweep after a prompt edit needs to read the *full* per-field breakdown, not just the targeted classes — a regression elsewhere is a signal that the edit consumed attention budget.
 
@@ -410,7 +405,7 @@ Three fixtures now perfect (`02_aloe_corp_prose_email`, `quote_10`, `quote_11`).
 
 **Next:** the easy wins are gone. Remaining classes need either (a) comparator semantic-equivalence for prose fields and pack_size canonicalization, or (b) per-fixture golden audits — neither cheap. Worth weighing against shipping the LangGraph node-body work the harness was built to support.
 
-## 2026-05-04 — Day 2 (continued: inventory CSV + Day-3 plan)
+## 2026-05-04 — inventory CSV + LangGraph plan
 
 Inventory master at `data/inventory/inventory.csv`: 146 rows (51 anchors + 95 filler), 12 columns. Two-pass prompt to claude.ai — anchors-first to bound single-shot risk on row count + distribution constraints, filler in a second turn applying constraints across the full set. All 51 anchor SKUs from the eval corpus present verbatim. `KMEAL-44` absent on purpose (preserves the NutriGrow substitution exception case). Validated: unique SKUs, canonical UoM/category sets, all prices parse Decimal, all dates ISO. Distribution: 5 low-stock, 3 empty-currency, 4 stale-dated, 2 CAD anchors.
 
@@ -423,7 +418,7 @@ v1 schema is denormalized — `last_paid_*` and `on_hand_qty` / `reorder_point` 
 
 **Plan from here.** Product Pydantic model + CSV loader (in-memory `dict[str, Product]`) → state types (`QuoteWorkflowState`, `MatchResult`, `Exception_`) → hand-authored LangGraph extract subgraph (`extract_node` + `ToolNode` + `should_continue`; speak-in-primitives, not `create_react_agent`) → concept-mapping doc at `docs/from_primitives_to_langgraph.md` → stub match/flag/approval nodes → compile with `MemorySaver` + `interrupt_before=["approval_node"]` → end-to-end run on one fixture. Real match/flag logic, eval harness wrapped around graph runs, Supabase migration, FastAPI HITL endpoint follow as pace allows — ordered next-steps, not hard-scheduled to days.
 
-## 2026-05-04 — Day 2 (Product model + inventory loader)
+## 2026-05-04 — Product model + inventory loader
 
 `Product` Pydantic model and `load_products()` landed. 146-row real CSV loads clean; 7 tests pin the loader behavior.
 
@@ -448,9 +443,9 @@ v1 schema is denormalized — `last_paid_*` and `on_hand_qty` / `reorder_point` 
 - `Product` is `frozen=True` since it's master data — once loaded it doesn't mutate. `Quote` / `QuoteLineItem` stay mutable since downstream nodes will attach match results.
 - Loader is a function, not a class. No caching; v1 reads the CSV on every call. Caching moves to the LangGraph state when match logic lands.
 
-**Next:** state types (`QuoteWorkflowState`, `MatchResult`, `Exception_`) and the hand-authored extract subgraph. State types are scaffolding; subgraph node bodies are the user's to write per the working agreement.
+**Next:** state types (`QuoteWorkflowState`, `MatchResult`, `Exception_`) and the hand-authored extract subgraph.
 
-## 2026-05-04 — Day 2 (continued: LangGraph extract subgraph + smoke tests)
+## 2026-05-04 — LangGraph extract subgraph + smoke tests
 
 `QuoteWorkflowState` and the extract subgraph landed. Side-by-side run on the aloe anchor fixture produces the same `Quote` JSON as `agent.run` modulo Sonnet stochasticity on `raw_notes`. Six smoke tests cover compile/topology + pure-function routing without API calls; full suite at 22 passing.
 
@@ -484,9 +479,9 @@ v1 schema is denormalized — `last_paid_*` and `on_hand_qty` / `reorder_point` 
 
 **Held drift / not done this session.** Concept-mapping doc (`docs/from_primitives_to_langgraph.md`) — section headers landed, prose still empty. Next-up.
 
-**Next:** concept-mapping doc prose (Claude drafts, user revises ruthlessly, same shape as the README). Then real match + flag logic against the in-memory product master, with `MatchResult` and `Exception_` schemas firming up.
+**Next:** concept-mapping doc prose. Then real match + flag logic against the in-memory product master, with `MatchResult` and `Exception_` schemas firming up.
 
-## 2026-05-04 — Day 2 (continued: graph.py concept mapping)
+## 2026-05-04 — graph.py concept mapping
 
 No code changes. Walked through `graph.py` end-to-end to lock in the LangGraph mental model before match/flag bodies land.
 
@@ -502,7 +497,7 @@ No code changes. Walked through `graph.py` end-to-end to lock in the LangGraph m
 
 **Next:** match-node body against the in-memory product master. First node since `extract` to emit real state — first session where a LangSmith trace shows the pipeline past the ReAct loop.
 
-## 2026-05-04 — Day 2 (continued: postgres schema + migrations)
+## 2026-05-04 — postgres schema + migrations
 
 Local docker postgres + hand-rolled SQL migrations + DB-as-master for the product catalog. End-to-end works against `procure_agent` namespace; 146 products seeded from `data/inventory/inventory.csv`. Full suite at 26 passing (4 new DB tests).
 
@@ -517,11 +512,11 @@ Local docker postgres + hand-rolled SQL migrations + DB-as-master for the produc
 - `.env.example` — both URL forms documented (plain `localhost` for normal docker hosts, OrbStack note for the VM-on-Mac case).
 
 **Decisions worth keeping.**
-- **(A) Hand-rolled SQL migrations, not alembic.** Real DDL on the page in the repo, no ORM coupling for schema, plain text portable to Supabase migrations later. Trade-off: no `--autogenerate`, downgrades not modeled. For a 7-day build with ~3 expected migrations, the tooling overhead doesn't amortize.
+- **(A) Hand-rolled SQL migrations, not alembic.** Real DDL on the page in the repo, no ORM coupling for schema, plain text portable to Supabase migrations later. Trade-off: no `--autogenerate`, downgrades not modeled. With a handful of expected migrations at v1, the tooling overhead doesn't amortize.
 - **(B) DB as master, CSV as seed source via generator script.** The CSV stays human-editable; the SQL is the migration. Keeping the generator in `scripts/` (not auto-running at startup) means the seed file is a committed artifact a reviewer can read directly.
 - **(C) `category` and `uom` as enums on `products`; plain `text` for `quote_line_items.uom`.** Inventory is curated, so enum drift is a real signal to catch at load time. Extracted quote UoMs may be non-canonical (`gallons`, `gal.`, `Gal`); enum-rejecting them at INSERT would mask data-quality issues that the eval harness is supposed to surface.
 - **(D) Runner bootstraps `schema_migrations` itself, separately from `0001_init.sql`.** First-run chicken-and-egg: the tracking table has to exist before the first migration's row is recorded. Cleaner than threading the bootstrap into 0001.
-- **(E) Schema scope this week.** `products`, `quotes`, `quote_line_items`, `agent_runs` only. `supplier_name` stays denormalized on `quotes` until supplier-onboarding (week 3). `boms` and `purchase_orders` deferred. `agent_runs.langsmith_run_id` is the seam to LangSmith for the README's traced-sample-runs section.
+- **(E) Schema scope for v1.** `products`, `quotes`, `quote_line_items`, `agent_runs` only. `supplier_name` stays denormalized on `quotes` until supplier-onboarding lands. `boms` and `purchase_orders` deferred. `agent_runs.langsmith_run_id` is the seam to LangSmith for traced-sample runs.
 
 **OrbStack environment note.** Docker daemon runs on the Mac, not in this Linux VM. Installed `docker.io` for the CLI, disabled the VM-local daemon, set `DOCKER_HOST=unix:///opt/orbstack-guest/run/docker.sock` in `/etc/profile.d/`, chowned that socket to `:docker` and added the user to the `docker` group. The published port is on the Mac's loopback, so from inside this VM the container is reachable at `procure-pg.orb.local:5432` (OrbStack auto-DNS) — `localhost:5432` and `host.docker.internal:5432` both miss it. `.env.example` documents the portable case (`localhost`); local `.env` uses the orb DNS name.
 
@@ -532,7 +527,7 @@ Local docker postgres + hand-rolled SQL migrations + DB-as-master for the produc
 
 **Next:** match-node body. Read `quote.line_items[*]`, look up by SKU against `procure_agent.products`, populate `MatchResult` with whatever the schema needs to firm up. First node where the DB earns its keep.
 
-## 2026-05-05 — Day 3 (query layer + match/flag state shape)
+## 2026-05-05 — query layer + match/flag state shape
 
 psycopg-direct query layer against `procure_agent.products`, pg_trgm enabled with GIN indexes for fuzzy SKU/description match, and `state.py` refactored to firm up `MatchResult` / `Exception_` / the cascade enum. Match/flag node bodies still no-op stubs; their docstrings now spell out the contract. Full suite at 34 passing (8 new DB tests).
 
@@ -562,9 +557,9 @@ psycopg-direct query layer against `procure_agent.products`, pg_trgm enabled wit
 
 **Next:** `match_node` body — straight cascade calling into `db.py`. Then a couple of integration tests in `tests/test_graph.py` exercising exact / fuzzy / unmatched paths. Then `flag_node` body for the four comparison flags.
 
-**CI miss (same day).** First green CI run on `main` after the Day-3 push went red: all 8 `tests/test_db.py` cases failed with `relation "products" does not exist`. Workflow stood up the postgres service container and exported `DATABASE_URL` but never ran `scripts/migrate.py` between `uv sync` and `uv run pytest`. `test_migrations.py` masked it because that suite spins up its own fresh DB and runs the migrator inline; `test_db.py` connects to the shared service DB and assumed the schema was there. Fix: one `Apply migrations` step in `.github/workflows/ci.yml` before the test step. Lesson: when a suite splits between "owns its own DB" and "uses the shared one", a passing migration test is not evidence the shared DB has been migrated.
+**CI miss.** First green CI run on `main` after the migrations push went red: all 8 `tests/test_db.py` cases failed with `relation "products" does not exist`. Workflow stood up the postgres service container and exported `DATABASE_URL` but never ran `scripts/migrate.py` between `uv sync` and `uv run pytest`. `test_migrations.py` masked it because that suite spins up its own fresh DB and runs the migrator inline; `test_db.py` connects to the shared service DB and assumed the schema was there. Fix: one `Apply migrations` step in `.github/workflows/ci.yml` before the test step. Lesson: when a suite splits between "owns its own DB" and "uses the shared one", a passing migration test is not evidence the shared DB has been migrated.
 
-## 2026-05-05 — Day 3 (match_node body + ScoredProduct refactor)
+## 2026-05-05 — match_node body + ScoredProduct refactor
 
 **Shipped.**
 - `match_node` body lands. Cascade explicit, five tiers + UNMATCHED fallthrough, short-circuit per line. Split into `_match_line(conn, line_index, line)` (the cascade) and `match_node(state)` (opens connection, maps the helper over `state["quote"].line_items`, returns `{"matches": [...]}`). One `connect()` per node, threaded into every line.
@@ -588,7 +583,7 @@ psycopg-direct query layer against `procure_agent.products`, pg_trgm enabled wit
 
 **Next:** match integration tests in `tests/test_graph.py` exercising the three cascade outcomes (exact / fuzzy / unmatched) against the seeded DB. Then `flag_node` body for the four comparison flags (PRICE_VARIANCE, CURRENCY_MISMATCH, PACK_SIZE_DRIFT, UOM_MISMATCH).
 
-## 2026-05-05 — Day 3 (continued: cascade tier tests + normalize + flag_node)
+## 2026-05-05 — cascade tier tests + normalize + flag_node
 
 Closed out match/flag node work in one push. match_node integration coverage for tiers 3–5 + UNMATCHED fallthrough, then a small `normalize` module with tolerance comparators (`same_uom`, `same_pack_size`), then `flag_node` body wired through them with the four-flag cascade. Suite at 82 passing (+4 match_node, +32 normalize, +11 flag_node).
 
@@ -613,11 +608,11 @@ Closed out match/flag node work in one push. match_node integration coverage for
 - The asymmetric-None pack_size flag per (F) might be noise on prose-only quotes that don't restate pack size. Watch.
 - End-to-end smoke through the full graph (extract → match → flag) with a real Anthropic call still untested; only sub-node coverage so far.
 
-**Next:** wrap the full graph in the eval harness (Day 4 work) — extract → match → flag → interrupt against the synthetic quote corpus. Observe failure modes, drop them in here. Tune trigram threshold once a baseline exists. After: FastAPI HITL endpoint + Streamlit demo (Day 5).
+**Next:** wrap the full graph in the eval harness — extract → match → flag → interrupt against the synthetic quote corpus. Observe failure modes, drop them in here. Tune trigram threshold once a baseline exists. After: FastAPI HITL endpoint.
 
-**README draft (Day 6 prep) — node naming + reconciliation split.**
+**README draft — node naming + reconciliation split.**
 
-Stashing the design-decisions narrative now so Day 6 doesn't rebuild it from scratch. The handoff plan listed `parse → extract → match → reconcile → flag → approval`; what shipped is `extract → match → flag → approval`. Worth being deliberate about why before the architecture diagram locks it in.
+Stashing the design-decisions narrative now so the README pass doesn't rebuild it from scratch. The original plan listed `parse → extract → match → reconcile → flag → approval`; what shipped is `extract → match → flag → approval`. Worth being deliberate about why before the architecture diagram locks it in.
 
 *Architecture-diagram caption (proposed):*
 
@@ -627,11 +622,11 @@ Stashing the design-decisions narrative now so Day 6 doesn't rebuild it from scr
 
 > **Reconciliation splits into identity and divergence.** `match` decides which catalog product a quote line refers to (cascade through five SKU/description tiers, UNMATCHED on fallthrough). `flag` decides where the matched offer diverges from our last reference (price >10%, currency, pack size, UoM). Splitting them earns trace separability — each is its own LangSmith span — independent eval scoring (identity precision vs. flag-emission precision), and a HITL surface that can render identity decisions and divergence flags as two sections. A merged `reconcile` node would have collapsed both into one span.
 
-*Drift-from-handoff notes worth a sentence in design-decisions or "what changed during the build":*
+*Drift-from-original-plan notes worth a sentence in design-decisions or "what changed during the build":*
 - `parse` collapsed into `extract` — a one-line JSON transform off the model's terminal turn doesn't need its own node.
 - `reconcile` was planning scaffolding; once built, identity and divergence had naturally distinct contracts and merging them would have hidden which decision a regression came from.
 
-## 2026-05-05 — Day 4 (full-corpus eval baseline + cascade/flag observability)
+## 2026-05-05 — full-corpus eval baseline + cascade/flag observability
 
 First end-to-end run of the full graph (`extract → match → flag → interrupt`) against all 14 synthetic-quote fixtures (65 line_items, ~12 Sonnet calls). Goal was observation — corpus-level cascade-tier distribution and flag-firing rates — not tuning. Artifact: `evals/runs/20260505T181616Z.json`.
 
@@ -640,19 +635,19 @@ First end-to-end run of the full graph (`extract → match → flag → interrup
 - Cascade: 54 supplier_sku_exact, 1 requested_sku_exact, 0 supplier_sku_fuzzy, 0 requested_sku_fuzzy, 3 description_fuzzy, 7 unmatched.
 - Flags raised: 52 currency_mismatch, 45 price_variance, 27 pack_size_drift, 7 unmatched.
 
-**Cascade is bimodal in this corpus.** SKU-bearing fixtures (11 of 14) hit `supplier_sku_exact` on every line; the 3 prose fixtures with all-`None` supplier_skus (`09_date_formats`, `11_leadtime_prose`, `12_revised`) drop straight to `description_fuzzy` or `unmatched`. **Both fuzzy SKU tiers (3, 4) saw zero hits** — the corpus has no SKU-typo cases, so tier 3/4 is unit-test-only behavior right now. Adding one substitution-typo fixture (e.g., `STRAPPP58` from the unit test promoted into a quote) would close the cascade-coverage gap before Day 6.
+**Cascade is bimodal in this corpus.** SKU-bearing fixtures (11 of 14) hit `supplier_sku_exact` on every line; the 3 prose fixtures with all-`None` supplier_skus (`09_date_formats`, `11_leadtime_prose`, `12_revised`) drop straight to `description_fuzzy` or `unmatched`. **Both fuzzy SKU tiers (3, 4) saw zero hits** — the corpus has no SKU-typo cases, so tier 3/4 is unit-test-only behavior right now. Adding one substitution-typo fixture (e.g., `STRAPPP58` from the unit test promoted into a quote) would close the cascade-coverage gap.
 
 **Description_fuzzy is producing wrong matches.** All 3 hits land at confidence 0.33–0.40, into catalog SKUs that aren't actually right:
 - `09_date_formats L0/L1` → `LINER-DRUM-CL` (catalog: liner, roll of 50). Quote prose: "drum heat seal closures, kraft" / "drum 1/2-mil liner, FDA". `LINER-DRUM-CL` shares the "DRUM" / "LINER" tokens by trigram coincidence; it isn't the same product. Bogus divergence flags cascade: price_variance 92.3% / 94.9%, plus pack_size_drift on the asymmetric-None.
 - `11_leadtime_prose L2` → `SULK-50` (catalog: sulk, 50 lb). Quote prose: "Sulfur, agricultural-grade, 50 lb bag". Trigram match through "sulf"/"sulk" letter overlap; wrong product. Cascades a 53.8% price_variance.
 
-This is **Day-3 decision (E) playing out exactly as predicted**: low-confidence description-fuzzy matches cascade bogus divergence flags, and the noise looks like signal at HITL time. Two fixes worth weighing for Day 5/6: (a) raise the pg_trgm threshold from 0.3 → 0.45 (would push these to UNMATCHED, where they belong); (b) gate divergence-flag emission on `confidence >= 0.5` in `flag_node` (keeps the match for HITL "did you mean…?" but suppresses bogus price/pack flags). (a) is structurally cleaner — UNMATCHED already encodes the "we didn't find it" signal; (b) leaks the cascade's confidence into flag logic.
+This is **the prior session's decision (E) playing out exactly as predicted**: low-confidence description-fuzzy matches cascade bogus divergence flags, and the noise looks like signal at HITL time. Two fixes worth weighing: (a) raise the pg_trgm threshold from 0.3 → 0.45 (would push these to UNMATCHED, where they belong); (b) gate divergence-flag emission on `confidence >= 0.5` in `flag_node` (keeps the match for HITL "did you mean…?" but suppresses bogus price/pack flags). (a) is structurally cleaner — UNMATCHED already encodes the "we didn't find it" signal; (b) leaks the cascade's confidence into flag logic.
 
-**Currency_mismatch is 90% noise.** Of 52 currency_mismatch flags, **47 are `None vs USD`** — the bare-`$` extraction-shape false-positive flagged in Day-3 decision (E)'s "Held drift". 4 are legitimate `CAD vs USD` (nutrigrow + one Canadian quote line). 1 is `None vs CAD`. The flag is firing on 90% of matched lines and the noise dominates the signal completely.
+**Currency_mismatch is 90% noise.** Of 52 currency_mismatch flags, **47 are `None vs USD`** — the bare-`$` extraction-shape false-positive flagged earlier as held drift. 4 are legitimate `CAD vs USD` (nutrigrow + one Canadian quote line). 1 is `None vs CAD`. The flag is firing on 90% of matched lines and the noise dominates the signal completely.
 
-The cleanest fix is at extraction: bare `$` in dollar-formatted prose should canonicalize to `"USD"` (not `None`). That's a prompt change, not a flag-logic change. The alternative — comparator treating `None ≈ USD` as cosmetic when the source has a bare symbol — leaks extraction concerns into flag code. Defer the prompt edit until the per-field audit (memory: prompt-edit checklist) so we don't flush other tuning.
+The cleanest fix is at extraction: bare `$` in dollar-formatted prose should canonicalize to `"USD"` (not `None`). That's a prompt change, not a flag-logic change. The alternative — comparator treating `None ≈ USD` as cosmetic when the source has a bare symbol — leaks extraction concerns into flag code. Defer the prompt edit until the per-field audit pass so we don't flush other tuning.
 
-**Pack_size_drift is mostly substantive.** Of 27 firings: **8 asymmetric-None** (catalog has data, quote prose didn't restate it — Day-3 decision (F)'s predicted noise pattern, confirmed); **19 both-real** divergences. The both-real bucket is mostly legitimate, but a few are cosmetic that `same_pack_size` should arguably collapse:
+**Pack_size_drift is mostly substantive.** Of 27 firings: **8 asymmetric-None** (catalog has data, quote prose didn't restate it — the prior session's predicted noise pattern, confirmed); **19 both-real** divergences. The both-real bucket is mostly legitimate, but a few are cosmetic that `same_pack_size` should arguably collapse:
 - `'1 gal' != '1 gal jug'` — same numeric, container token missing on the quote side
 - `'drum (55 gal)' != '55 gal drum'` — extraction word-order (also surfaces as a value_mismatch on extraction; root cause is upstream)
 - `'2.2 cu ft compressed bale' != '2.2 cu ft bale'` — qualifier difference, possibly substantive (compressed peat ships denser)
@@ -660,9 +655,9 @@ The cleanest fix is at extraction: bare `$` in dollar-formatted prose should can
 
 The `same_pack_size` predicate's tokenizer (lowercase + digit-letter split + whitespace squeeze) doesn't currently collapse word-order or trailing-token differences. Keep as-is for v1; revisit if the cosmetic cases bite at HITL.
 
-**The cascade caught one real substitution.** `quote_nutrigrow_2026-04-25 L4`: supplier offered `KMEAL-44` (their packing, 44 lb bag, missing from product master), buyer's requested SKU was `KMEAL-50` (catalog hit). Match cascade: tier 1 supplier_sku_exact misses → tier 2 requested_sku_exact hits at confidence 1.0. `pack_size_drift` then fires correctly: `44 lb bag != product 50 lb bag`. **This is exactly the supplier-substitution workflow the cascade was designed for** — supplier and buyer transacting against different SKUs for the same product, divergence flagged at the packing level. Worth quoting in the README design-decisions section as the canonical "why we cascade" example.
+**The cascade caught one real substitution.** `quote_nutrigrow_2026-04-25 L4`: supplier offered `KMEAL-44` (their packing, 44 lb bag, missing from product master), buyer's requested SKU was `KMEAL-50` (catalog hit). Match cascade: tier 1 supplier_sku_exact misses → tier 2 requested_sku_exact hits at confidence 1.0. `pack_size_drift` then fires correctly: `44 lb bag != product 50 lb bag`. **This is exactly the supplier-substitution workflow the cascade was designed for** — supplier and buyer transacting against different SKUs for the same product, divergence flagged at the packing level. Canonical "why we cascade" example for the README.
 
-**Extraction-side mismatches surfaced (15 value_mismatch + 1 format_drift).** Most are `raw_notes` Sonnet stochasticity (already-known noise; per Day-2 side-by-side run). Material ones:
+**Extraction-side mismatches surfaced (15 value_mismatch + 1 format_drift).** Most are `raw_notes` Sonnet stochasticity (already-known noise from prior side-by-side runs). Material ones:
 - `terragreen` × 3: `'50# bag'` extracted verbatim vs. golden `'50 lb bag'` — the `#` pound-abbreviation convention isn't being normalized. Prompt-tuning candidate (per the prompt-edit checklist).
 - `pacific_amendments`: `'Sphagnum Peat Moss, compressed'` description vs. golden `'Sphagnum Peat Moss'`, with the `compressed` qualifier instead landing in pack_size — the quote prose put `compressed` in the description column and the model split it ambiguously. Edge case.
 - `quote_08 L0`: `'drum (55 gal)'` vs. golden `'55 gal drum'` — extraction word-order. Same root cause as the cosmetic pack_size_drift firing above.
@@ -672,7 +667,7 @@ The `same_pack_size` predicate's tokenizer (lowercase + digit-letter split + whi
 - No quote-level field failures (currency at quote-level, valid_through, dates) — extraction stable.
 - No FAIL fixtures — graph end-to-end ran clean on all 14.
 
-**Decisions for Day 6 README design-decisions section.**
+**Decisions for the README design-decisions section.**
 - Lead the cascade narrative with the **nutrigrow KMEAL-44→KMEAL-50 substitution catch** — it's the single most legible "why this architecture" moment in the corpus.
 - Acknowledge the **description_fuzzy false-positive failure mode** explicitly. Either (a) document the pg_trgm threshold tune that fixes it, or (b) keep the v1 behavior and call out "low-confidence description matches cascade noisy divergence flags" as a known trade-off the HITL operator is in the loop for. Either is defensible; pick before the section locks.
 - Acknowledge the **currency-mismatch extraction-shape noise** the same way. The README can either show the post-fix numbers or be honest about v1 noise; the latter is more credible if the demo is going to surface a `None vs USD` flag.
@@ -680,13 +675,13 @@ The `same_pack_size` predicate's tokenizer (lowercase + digit-letter split + whi
 **Held drift / not done this session.**
 - pg_trgm threshold still 0.3. Decision deferred.
 - Bare-`$` → `USD` extraction normalization deferred.
-- No SKU-typo fixture in the corpus to exercise tiers 3–4 of the cascade. Worth adding before Day 6.
+- No SKU-typo fixture in the corpus to exercise tiers 3–4 of the cascade. Worth adding.
 - Asymmetric-None pack_size flag not gated; per (F), watching it.
 - `evals/run.py` doesn't compute extraction-vs-match correlation (e.g., when did extraction value_mismatch *cause* a downstream match/flag failure?). Today's analysis was manual via the artifact JSON. If we run the eval more than 2-3 more times, worth adding a "joint failures" report.
 
-**Next:** FastAPI HITL endpoint + Streamlit demo (Day 5). The eval harness is the observability tool to run before/after each tuning change; today's artifact is the baseline to diff against.
+**Next:** FastAPI HITL endpoint + frontend. The eval harness is the observability tool to run before/after each tuning change; today's artifact is the baseline to diff against.
 
-## 2026-05-05 — Tune-before-Day-5: pg_trgm threshold (description) 0.3 → 0.45
+## 2026-05-05 — pg_trgm threshold (description) 0.3 → 0.45
 
 Took fix (a) from yesterday's description_fuzzy noise diagnosis: bumped `find_products_by_description_similarity` default threshold to 0.45 in `src/procure_agent/db.py`. Left the SKU threshold at 0.3 (cascade had zero fuzzy SKU hits in the corpus, so re-tuning it would be speculative). Re-ran the full eval; new artifact `evals/runs/20260505T183700Z.json`.
 
@@ -696,19 +691,19 @@ Took fix (a) from yesterday's description_fuzzy noise diagnosis: bumped `find_pr
 - `unmatched` flag count: `7 → 10`, exactly tracking the cascade movement.
 - No regression on `supplier_sku_exact=54` or `requested_sku_exact=1`. Field-match holds at 98.0%.
 
-**What this means for Day 5.** UNMATCHED is now the only signal carrying the "we didn't find this product" decision — no low-confidence fuzzy hits leaking through to the flag layer with bogus divergence. The HITL queue should render those 10 lines as "did you mean / create new SKU" prompts, not as "review this 95% price drift on a product we're not actually sure we matched."
+**What this means for the HITL surface.** UNMATCHED is now the only signal carrying the "we didn't find this product" decision — no low-confidence fuzzy hits leaking through to the flag layer with bogus divergence. The HITL queue should render those 10 lines as "did you mean / create new SKU" prompts, not as "review this 95% price drift on a product we're not actually sure we matched."
 
-**Next (still pending user):** the bare-`$` → `USD` extraction prompt edit. After that, today's artifact gets superseded by the post-prompt-edit run as the new pre-Day-5 baseline.
+**Next:** the bare-`$` → `USD` extraction prompt edit. After that, today's artifact gets superseded by the post-prompt-edit run as the new locked baseline.
 
-## 2026-05-05 — Tune-before-Day-5 (cont.): currency rule pivot, flag gating, prompt caching → locked baseline
+## 2026-05-05 — currency rule pivot, flag gating, prompt caching → locked baseline
 
-Three changes landed in sequence. New artifact `evals/runs/20260505T193415Z.json` is the locked pre-Day-5 baseline.
+Three changes landed in sequence. New artifact `evals/runs/20260505T193415Z.json` is the locked baseline.
 
 **(1) Currency rule pivot — strict-null → application-default-USD.**
 
-Originally drafted a strict rule (bare `$` → USD; no symbol → null) with priorities 1-4 covering ISO codes, compound symbols, bare `$`, and bare `€`/`£`/`¥`. First post-edit eval revealed extraction was over-predicting USD on no-symbol fixtures (q08, q10 CSVs of plain numbers; terragreen ALFM-50 with siblings using `$`) — 14 lines diverged from strict-rule goldens, dragging field-match to 95.8%.
+Initial draft was a strict rule (bare `$` → USD; no symbol → null) with priorities 1-4 covering ISO codes, compound symbols, bare `$`, and bare `€`/`£`/`¥`. First post-edit eval revealed extraction was over-predicting USD on no-symbol fixtures (q08, q10 CSVs of plain numbers; terragreen ALFM-50 with siblings using `$`) — 14 lines diverged from strict-rule goldens, dragging field-match to 95.8%.
 
-Pressed pause and reframed: this tool serves US-anchored procurement workflows. The strict rule was over-engineered against a deployment context that doesn't exist (truly currency-ambiguous SMB workflows). The "anti-inference" muscle was specifically about *supplier metadata* (address/zip/area-code), which is sound and stays. What's different is *application-context defaults* — when the document is silent, USD is the correct default for a US tool.
+Reframed: this tool serves US-anchored procurement workflows. The strict rule was over-engineered against a deployment context that doesn't exist (truly currency-ambiguous SMB workflows). The "anti-inference" muscle was specifically about *supplier metadata* (address/zip/area-code), which is sound and stays. What's different is *application-context defaults* — when the document is silent, USD is the correct default for a US tool.
 
 Final rule: `Default is "USD"`, override only on explicit ISO code, compound-symbol token (`C$`/`A$`/`HK$` etc.), or bare `€`/`£`/`¥` (which emit `null`). Anti-supplier-metadata language preserved — "A Toronto letterhead with no `$`, no compound-symbol token, and no `CAD` mention → `USD` per the application default. If the supplier meant CAD, they would say so."
 
@@ -732,14 +727,14 @@ Two new tests in `test_graph.py` cover the asymmetric null cases.
 
 Wrapped `SYSTEM` in `[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}]` in both `agent.py` and `graph.py:extract_node`. Verified working: `cache_read_input_tokens: 4507` on consecutive calls, `input_tokens: 325` (just the user message + tools structure billed at full rate). Effective cut: ~85% on system-prompt input cost per call. Across a 14-fixture eval run, this is the single biggest cost lever short of swapping models.
 
-**Locked baseline diff vs. original Day-4 baseline:**
+**Locked baseline diff vs. the prior eval baseline:**
 - Field-match: 98.0% → **97.7%** (within Sonnet stochasticity band; per-field breakdown shows `line_items.*.currency` gone entirely from failures, replaced by the usual description/notes/raw_notes flux).
 - `currency_mismatch` flags: 52 → **5** (47 noise eliminated; remaining 5 are the legit pacific_amendments CAD lines + 1 nutrigrow USD-vs-catalog-CAD).
 - `description_fuzzy` cascade hits: 3 (all wrong) → **0** (all 3 now correctly UNMATCHED).
 - `unmatched` cascade hits: 7 → 10 (the 3 wrong fuzzy matches moved here).
 - Match-tier distribution: 54 supplier_sku_exact, 1 requested_sku_exact, 10 unmatched — no regression on SKU matching.
 
-**Next:** Haiku 4.5 swap as a single-variable change. Today's artifact (`20260505T193415Z.json`) is the Sonnet baseline to diff against. If field-match holds within ~1% on Haiku, commit; otherwise revert. Then Day 5 (FastAPI HITL endpoint + Streamlit demo) starts on the cheaper extraction path.
+**Next:** Haiku 4.5 swap as a single-variable change. Today's artifact (`20260505T193415Z.json`) is the Sonnet baseline to diff against. If field-match holds within ~1% on Haiku, commit; otherwise revert. The HITL endpoint then starts on the cheaper extraction path.
 
 ## 2026-05-05 — Haiku 4.5 swap + customer_ref tightening (locked)
 
@@ -753,13 +748,13 @@ One-line change in `agent.py:29` (`MODEL = "claude-sonnet-4-6"` → `"claude-hai
 
 **Customer_ref tightening (the win that stuck).** Added a "**Names are not IDs**" clause to the customer_ref field-spec at `prompts.py:64`: "when the source shows only the buyer's company name (e.g., 'Bill To: <Buyer Name Inc.>') with no alphanumeric account code alongside, emit `null` — customer names are not captured anywhere in this schema." Targeted at the rootwise failure; landed exactly as expected (rootwise 18/19 → 19/19). The semantic is load-bearing for the round-trip: a name in `customer_ref` would silently break downstream PO generation that expects the supplier's stable account ID.
 
-**Pack_size iterations that didn't pan out (worth recording so I don't try them again).** Two attempts on the meridian "1 gallon" / terragreen "1 cy" failures, both regressed:
+**Pack_size iterations that didn't pan out (worth recording to avoid retrying).** Two attempts on the meridian "1 gallon" / terragreen "1 cy" failures, both regressed:
 1. **Structural inversion** — moved the null fallback to lead with "Default null; lift only when..." and reframed the three rules as exceptions. Haiku read "Lift when packaging noun..." as a stronger trigger and started over-lifting: 12_revised IBC sizes (golden=None) got pulled in, 08 lifted as `"drum (55 gal)"` instead of `"55 gal drum"`, terragreen started lifting `"1 cy"`. Net 754/784 (-3 vs Haiku baseline). Pack_size mis went 5 → 10.
 2. **Surgical reinforcements** — kept original ordering, added IBCs to the saleable-unit counter-rule and a second `"Hydraulic fluid, 1 gallon"` example to the null fallback. Worse: 749/784 (-8 vs baseline). Pack_size mis went to 11; 12_revised cratered to 31/39. Adding rules made Haiku less coherent, not more.
 
 **Lesson.** The original pack_size structure was already tight. Haiku interprets additional inline rules more liberally than Sonnet — adding examples or restructuring the priority order both pulled it toward over-lifting. The meridian/terragreen failures may not be reachable through prompt-tuning alone; they likely need a different angle (a few-shot demo case showing this exact pattern, or accepted as Haiku's noise floor on pack_size).
 
-**Caught one corpus-contamination slip.** First reinforcement pass had `"275-gal IBC"` and `"330-gal IBC"` as counter-rule examples — both verbatim from `quote_12_revised`. Per the prompt-edit checklist memory, the post-edit grep flagged both. Reworded to generic category language before reverting the whole iteration. Reinforces the discipline: run the contamination check **after every edit**, not just once at the end.
+**Caught one corpus-contamination slip.** First reinforcement pass had `"275-gal IBC"` and `"330-gal IBC"` as counter-rule examples — both verbatim from `quote_12_revised`. Post-edit grep flagged both. Reworded to generic category language before reverting the whole iteration. Reinforces the discipline: run the contamination check **after every edit**, not just once at the end.
 
 **Final state — locked baseline:**
 - Artifact: `evals/runs/20260505T201012Z.json`.
@@ -769,17 +764,17 @@ One-line change in `agent.py:29` (`MODEL = "claude-sonnet-4-6"` → `"claude-hai
 
 **Decision: stick with Haiku.** -0.8pt accuracy vs Sonnet is acceptable for the cost/latency profile of an extraction call. The CLAUDE.md split (Sonnet planner, Haiku extraction) holds.
 
-**Next:** Day 5 — FastAPI HITL approval endpoint + Streamlit demo, on the locked Haiku extraction path.
+**Next:** FastAPI HITL approval endpoint, on the locked Haiku extraction path.
 
-## 2026-05-05 — Day 5 (kicked off two days early): PostgresSaver + HITL schema + approval_node + FastAPI
+## 2026-05-05 — PostgresSaver + HITL schema + approval_node + FastAPI
 
-Eval baseline locked, pivoted to Day 5. Four chunks landed.
+Eval baseline locked, pivoted to the HITL stack. Four chunks landed.
 
 **(1) PostgresSaver swap.** Retired `MemorySaver`; `build_graph(checkpointer)` now requires the checkpointer explicitly — caller picks. Module-level `graph = build_graph()` removed (couldn't survive without a connection in scope), so eval/test callers build their own with `MemorySaver` and prod callers (CLI, FastAPI) pass `PostgresSaver`. New `scripts/setup_checkpointer.py` runs `PostgresSaver.setup()` idempotently.
 
 **Schema-split footgun worth recording.** First setup attempt put checkpoint tables in `procure_agent` (manual `SET search_path` before `setup()`). Broke at first invoke: `PostgresSaver.from_conn_string` opens connections with default search_path, `get_tuple` queried `public.checkpoints` → `UndefinedTable`. Resolution: keep checkpoint tables in `public`, domain tables in `procure_agent`. They're conceptually different (LangGraph internals vs. our domain model) and trying to consolidate them breaks at runtime. Don't re-litigate.
 
-**(2) HITL data shapes.** `LineAction` enum (approve/reject/override), `LineDecision` (with pydantic validator: `override_sku` required iff `action==OVERRIDE`), `HumanDecision` (reviewer + decided_at + line_decisions + overall_notes). `MatchResult` gained `human_action: LineAction | None`; `MatchMethod` gained `HUMAN_OVERRIDE` as a real cascade tier. Per-line v1, not per-flag — per-flag is closer to real procurement HITL but adds UX complexity not worth Day 5 budget; deferred to Week 3+.
+**(2) HITL data shapes.** `LineAction` enum (approve/reject/override), `LineDecision` (with pydantic validator: `override_sku` required iff `action==OVERRIDE`), `HumanDecision` (reviewer + decided_at + line_decisions + overall_notes). `MatchResult` gained `human_action: LineAction | None`; `MatchMethod` gained `HUMAN_OVERRIDE` as a real cascade tier. Per-line for v1, not per-flag — per-flag is closer to real procurement HITL but adds UX complexity beyond v1 scope; deferred to the supplier-onboarding workflow.
 
 **(3) approval_node body.** Three-way dispatch:
 - APPROVE — sets `human_action`; original cascade match + flags untouched.
@@ -796,7 +791,7 @@ The `_flag_one` extraction is the refactor that earned the override path. `flag_
 - `GET /runs/{thread_id}` — current snapshot (status: pending_approval / completed / in_progress).
 - `POST /runs/{thread_id}/resume` — inject HumanDecision, run to END.
 
-Connection strategy: per-request `PostgresSaver.from_conn_string` context manager. Demo traffic is recruiter-scale; pool optimization deferred. (Documented in api.py docstring so it doesn't get "optimized" without context.)
+Connection strategy: per-request `PostgresSaver.from_conn_string` context manager. Traffic at v1 is single-digit-concurrent; pool optimization deferred. (Documented in api.py docstring so it doesn't get "optimized" without context.)
 
 **Validation lives at the boundary** by design. Three layers:
 1. Pydantic on `LineDecision` — override_sku presence, mutually exclusive with non-override actions.
@@ -806,21 +801,21 @@ Connection strategy: per-request `PostgresSaver.from_conn_string` context manage
 Domain code (approval_node) trusts these and doesn't double-check. Operator typos surface as 422 with the missing SKU listed before the graph resumes.
 
 **Held drift / not done this session.**
-- LangGraph deserialization warnings on `Quote` / `MatchResult` / Anthropic `TextBlock` / `ToolUseBlock` (`allowed_msgpack_modules`). Currently advisory; will block in a future LangGraph version. Day 5+ tidy.
-- `agent_runs` table still unused. Day 6 morning when README's traced-sample-runs section needs it.
-- Streamlit demo (UI over the API) and Railway deploy outstanding.
+- LangGraph deserialization warnings on `Quote` / `MatchResult` / Anthropic `TextBlock` / `ToolUseBlock` (`allowed_msgpack_modules`). Currently advisory; will block in a future LangGraph version. Tidy after deploy.
+- `agent_runs` table still unused. Wire when the traced-sample-runs README section needs it.
+- UI and Railway deploy outstanding.
 
-**Where this leaves Day 5.** ~70% by lines-of-work. Hard architecture decisions (data shapes, validation strategy, connection lifecycle, override semantics) are settled. What's left is UI scaffolding + deploy.
+**Where this leaves the HITL stack.** Hard architecture decisions (data shapes, validation strategy, connection lifecycle, override semantics) are settled. What's left is UI scaffolding + deploy.
 
-## 2026-05-05 — Day 5, evening (UI repositioned: Next.js + FastAPI as a two-service product foundation)
+## 2026-05-05 — UI: Next.js + FastAPI as a two-service product foundation
 
-**The shape of the deploy changed.** The original handoff called for Streamlit as "the simplest path to recruiter-clickable demo." That framing optimized for *time-to-ship-something*. Repositioned to optimize for *time-to-ship-something-that-can-grow*: Next.js frontend + FastAPI as a separate Railway service. The agent core is the artifact; everything around it is now a real product foundation rather than a single-screen wrapper.
+**The shape of the deploy changed.** The earliest plan called for Streamlit as the simplest single-screen wrapper. Pivoted to Next.js frontend + FastAPI as a separate Railway service so the API is the integration boundary, not a script behind a UI. The agent core is the artifact; everything around it is a real product foundation rather than a single-screen wrapper.
 
 **FastAPI promoted from local-dev contract to product surface.** Up to this point the API was the "local API consumers / integration" layer — nice to have, but not the deployed thing. With a separate web service consuming it over HTTP, the API is now the actual integration boundary. Future consumers (ERP webhook, Slack bot, MCP server, third-party FE) plug into the same surface; the Next.js app is just the first client. The FastAPI work that landed earlier today is suddenly load-bearing rather than incidental — same code, more weight.
 
 **Stack.** Next.js 16.2 (App Router, server components by default), TypeScript strict, Tailwind v4, shadcn/ui (now base-ui-backed, not Radix), Zod 4 as the FE single source of truth, Biome for lint/format. `pnpm`, single repo, two services.
 
-**Two-service Railway, single public URL.** Service `api` (root `/`, Dockerfile, uvicorn) and service `web` (root `/web`, multi-stage Dockerfile, Next.js standalone). Web proxies `/api/*` to api via `API_INTERNAL_URL` (Railway internal DNS in prod, `localhost:8000` in dev). Recruiter sees one URL; CORS is moot in prod (same-origin); dev still uses a CORS allowlist for direct browser pokes against the API.
+**Two-service Railway, single public URL.** Service `api` (root `/`, Dockerfile, uvicorn) and service `web` (root `/web`, multi-stage Dockerfile, Next.js standalone). Web proxies `/api/*` to api via `API_INTERNAL_URL` (Railway internal DNS in prod, `localhost:8000` in dev). One public URL; CORS is moot in prod (same-origin); dev still uses a CORS allowlist for direct browser pokes against the API.
 
 **FastAPI prep.** Two additions to `src/procure_agent/api.py`: `CORSMiddleware` reading a comma-separated `CORS_ORIGINS` env var, and a cheap `GET /health` (no DB) wired as the Railway healthcheck.
 
@@ -842,17 +837,17 @@ Domain code (approval_node) trusts these and doesn't double-check. Operator typo
 
 **Cleanup.** Dropped `streamlit>=1.39.0` from `pyproject.toml` after the repositioning — `uv lock && uv sync` removed 100+ transitive deps including `watchdog`, `toml`, `six`, `smmap`. Trimmed image surface area for the api service.
 
-**What ships next (user-driven).**
+**What ships next.**
 1. `railway login` + create two services pointing at this repo (one with root = `/`, one with root = `/web`).
 2. Attach a Postgres plugin to the api service (Railway auto-injects `DATABASE_URL`).
 3. Set the env vars from `.env.example` per service via the dashboard.
 4. After the first api deploy: run `uv run python scripts/bootstrap_prod_db.py` once via Railway's run console (applies migrations + creates LangGraph checkpoint tables in `public`).
 5. Wire `API_INTERNAL_URL` on the web service to `http://${{api.RAILWAY_PRIVATE_DOMAIN}}:8000` (Railway template-string syntax for cross-service references).
-6. Public URL = the web service's `*.up.railway.app`. Recruiter-shareable.
+6. Public URL = the web service's `*.up.railway.app`.
 
-**Backlog updates** (in `procure-agent-handoff.md`): the random fresh-quote generator and the file-upload entries now reference Next.js, not Streamlit. Newly captured items the new architecture absorbs without rework: NextAuth, multi-tenant scoping, real-time SSE progress while extraction runs, MCP server wrap of the same FastAPI surface.
+**Backlog updates** (in the planning doc): the random fresh-quote generator and the file-upload entries now reference Next.js. Newly captured items the new architecture absorbs without rework: NextAuth, multi-tenant scoping, real-time SSE progress while extraction runs, MCP server wrap of the same FastAPI surface.
 
-**Where this leaves Day 5.** Frontend and API both shipped to a smoke-tested local state. Day 6 is the actual Railway deploy + a README rewrite that frames the API surface as the product, not the script behind a UI.
+**Where this leaves the HITL stack.** Frontend and API both shipped to a smoke-tested local state. Next: the Railway deploy + a README rewrite that frames the API surface as the product, not the script behind a UI.
 
 ## 2026-05-06 — Railway deploy
 
