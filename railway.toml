@@ -7,7 +7,7 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 preDeployCommand = "uv run python scripts/bootstrap_prod_db.py"
-startCommand = "sh -c 'uv run --no-dev uvicorn procure_agent.api:app --host 0.0.0.0 --port $PORT'"
+startCommand = "sh -c 'uv run --no-dev uvicorn procure_agent.api:app --host :: --port $PORT'"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
