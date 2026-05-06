@@ -30,6 +30,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi import Path as PathParam
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from langgraph.checkpoint.postgres import PostgresSaver
 from pydantic import BaseModel, Field
 
@@ -192,6 +193,17 @@ def _validate_override_skus(decisions: list[LineDecision]) -> None:
 def list_fixtures() -> list[str]:
     """List source-fixture filenames discoverable to the graph."""
     return sorted(p.name for p in QUOTES_DIR.iterdir() if p.suffix in SOURCE_EXTS)
+
+
+@app.get("/fixtures/{filename}", response_class=PlainTextResponse)
+def get_fixture_source(filename: Annotated[str, PathParam()]) -> str:
+    """Return the raw text of a source fixture so the UI can show it next to the extraction."""
+    if "/" in filename or "\\" in filename or filename.startswith("."):
+        raise HTTPException(status_code=400, detail="invalid fixture filename")
+    path = QUOTES_DIR / filename
+    if path.suffix not in SOURCE_EXTS or not path.is_file():
+        raise HTTPException(status_code=404, detail=f"fixture not found: {filename}")
+    return path.read_text(encoding="utf-8")
 
 
 @app.post("/runs", response_model=RunSnapshot)

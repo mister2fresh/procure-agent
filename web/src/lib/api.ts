@@ -36,6 +36,18 @@ export async function fetchFixtures(): Promise<string[]> {
   return callApi("/fixtures", { method: "GET" }, (raw) => fixturesSchema.parse(raw));
 }
 
+export async function fetchFixtureSource(filename: string): Promise<string> {
+  const res = await fetch(`${apiBaseUrl}/fixtures/${encodeURIComponent(filename)}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new ApiError(res.status, `/fixtures/${filename} → ${res.status}: ${detail}`);
+  }
+  return res.text();
+}
+
 export async function startRun(fixtureFilename: string): Promise<RunSnapshot> {
   return callApi(
     "/runs",
