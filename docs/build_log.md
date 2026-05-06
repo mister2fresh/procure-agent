@@ -811,3 +811,45 @@ Domain code (approval_node) trusts these and doesn't double-check. Operator typo
 - Streamlit demo (UI over the API) and Railway deploy outstanding.
 
 **Where this leaves Day 5.** ~70% by lines-of-work. Hard architecture decisions (data shapes, validation strategy, connection lifecycle, override semantics) are settled. What's left is UI scaffolding + deploy.
+
+## 2026-05-05 — Day 5, evening (UI repositioned: Next.js + FastAPI as a two-service product foundation)
+
+**The shape of the deploy changed.** The original handoff called for Streamlit as "the simplest path to recruiter-clickable demo." That framing optimized for *time-to-ship-something*. Repositioned to optimize for *time-to-ship-something-that-can-grow*: Next.js frontend + FastAPI as a separate Railway service. The agent core is the artifact; everything around it is now a real product foundation rather than a single-screen wrapper.
+
+**FastAPI promoted from local-dev contract to product surface.** Up to this point the API was the "local API consumers / integration" layer — nice to have, but not the deployed thing. With a separate web service consuming it over HTTP, the API is now the actual integration boundary. Future consumers (ERP webhook, Slack bot, MCP server, third-party FE) plug into the same surface; the Next.js app is just the first client. The FastAPI work that landed earlier today is suddenly load-bearing rather than incidental — same code, more weight.
+
+**Stack.** Next.js 16.2 (App Router, server components by default), TypeScript strict, Tailwind v4, shadcn/ui (now base-ui-backed, not Radix), Zod 4 as the FE single source of truth, Biome for lint/format. `pnpm`, single repo, two services.
+
+**Two-service Railway, single public URL.** Service `api` (root `/`, Dockerfile, uvicorn) and service `web` (root `/web`, multi-stage Dockerfile, Next.js standalone). Web proxies `/api/*` to api via `API_INTERNAL_URL` (Railway internal DNS in prod, `localhost:8000` in dev). Recruiter sees one URL; CORS is moot in prod (same-origin); dev still uses a CORS allowlist for direct browser pokes against the API.
+
+**FastAPI prep.** Two additions to `src/procure_agent/api.py`: `CORSMiddleware` reading a comma-separated `CORS_ORIGINS` env var, and a cheap `GET /health` (no DB) wired as the Railway healthcheck.
+
+**Type discipline at the boundary.** Per the global TS rule (Zod as the FE single source of truth): `web/src/lib/schemas.ts` mirrors the Pydantic models by hand. Every API response is runtime-parsed in `lib/api.ts` so any future Pydantic ↔ Zod drift surfaces as a parse error at the boundary instead of a silent UI bug. Decimals/dates arrive as strings (FastAPI JSON-mode serialization); the Zod schemas reflect that exactly rather than coercing eagerly.
+
+**Server actions, not browser fetch.** All FE → API traffic goes through Next.js server actions or server components. The browser never speaks directly to FastAPI. Three reasons: keeps the API origin off the wire, lets `revalidatePath` invalidate cached snapshots after a resume, and keeps the Zod-parsing fetch wrappers behind `import "server-only"` so client bundles stay lean.
+
+**Boundary translation pattern, applied.** `resumeRunAction` catches `ApiError` and returns a typed `{ ok: false, error }` for the form to render inline; everything else re-throws to Next.js's error boundary. Same pattern as the FastAPI 422/409 boundary on the Python side — domain code throws, the seam translates.
+
+**shadcn quirk worth recording.** Latest shadcn defaults to `@base-ui/react` instead of Radix. The new `Button` does not expose `asChild`. To wrap a `Link` with button styles, use `buttonVariants()` to get the className string and apply it to the `Link` directly. Caught by `tsc --noEmit`; lint alone wouldn't have caught it.
+
+**Smoke test passed end-to-end.** Postgres up, uvicorn on 8000, Next.js dev on 3000:
+- `GET /api/fixtures` populates the dropdown via server-side fetch through the rewrite proxy.
+- `POST /runs` (server action) → graph runs to `interrupt_before=["approval"]` → redirect to `/runs/{thread_id}`.
+- The pending-approval page renders header + line cards + decision form (verified `Approve & resume` in SSR output).
+- The completed page renders the PO preview, including divergence flags retained on approved lines (verified against an end-to-end curl-driven approve flow that produced `price_variance` + `pack_size_drift` flags on AL101).
+- `next build` succeeds with `output: "standalone"` (Docker runtime stage is a thin node copy of `.next/standalone`).
+- `pnpm typecheck` clean, `pnpm lint` clean, FastAPI `ruff check` clean.
+
+**Cleanup.** Dropped `streamlit>=1.39.0` from `pyproject.toml` after the repositioning — `uv lock && uv sync` removed 100+ transitive deps including `watchdog`, `toml`, `six`, `smmap`. Trimmed image surface area for the api service.
+
+**What ships next (user-driven).**
+1. `railway login` + create two services pointing at this repo (one with root = `/`, one with root = `/web`).
+2. Attach a Postgres plugin to the api service (Railway auto-injects `DATABASE_URL`).
+3. Set the env vars from `.env.example` per service via the dashboard.
+4. After the first api deploy: run `uv run python scripts/bootstrap_prod_db.py` once via Railway's run console (applies migrations + creates LangGraph checkpoint tables in `public`).
+5. Wire `API_INTERNAL_URL` on the web service to `http://${{api.RAILWAY_PRIVATE_DOMAIN}}:8000` (Railway template-string syntax for cross-service references).
+6. Public URL = the web service's `*.up.railway.app`. Recruiter-shareable.
+
+**Backlog updates** (in `procure-agent-handoff.md`): the random fresh-quote generator and the file-upload entries now reference Next.js, not Streamlit. Newly captured items the new architecture absorbs without rework: NextAuth, multi-tenant scoping, real-time SSE progress while extraction runs, MCP server wrap of the same FastAPI surface.
+
+**Where this leaves Day 5.** Frontend and API both shipped to a smoke-tested local state. Day 6 is the actual Railway deploy + a README rewrite that frames the API surface as the product, not the script behind a UI.

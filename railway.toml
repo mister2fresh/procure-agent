@@ -1,0 +1,13 @@
+# Railway config for the API service. Point a Railway service at this repo
+# with root directory = "/" to pick this up.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "uv run --no-dev uvicorn procure_agent.api:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

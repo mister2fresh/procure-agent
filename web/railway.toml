@@ -1,0 +1,11 @@
+# Railway config for the web service. Point a Railway service at this repo
+# with root directory = "/web" to pick this up.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "node server.js"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

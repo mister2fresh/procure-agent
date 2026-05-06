@@ -1,0 +1,30 @@
+# Local-only / build-derived
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# VCS + tooling
+.git/
+.gitignore
+.github/
+
+# Frontend (own image)
+web/
+
+# Tests, evals, docs (not needed at runtime)
+tests/
+evals/
+docs/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Env files
+.env
+.env.local
+.env.*.local

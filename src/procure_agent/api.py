@@ -8,9 +8,10 @@ Three endpoints:
     POST /runs/{thread_id}/resume — inject a :class:`HumanDecision` and run
                                     to END
 
-Plus a tiny helper:
+Plus two helpers:
     GET  /fixtures           — list available synthetic-quote fixtures so the
-                               Streamlit demo can populate a dropdown
+                               frontend can populate a dropdown
+    GET  /health             — Railway healthcheck; cheap, no DB call
 
 Connection strategy: per-request ``PostgresSaver.from_conn_string`` context
 manager. Demo traffic is recruiter-scale; a connection pool is the next-day
@@ -28,6 +29,7 @@ from typing import Annotated, Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi import Path as PathParam
+from fastapi.middleware.cors import CORSMiddleware
 from langgraph.checkpoint.postgres import PostgresSaver
 from pydantic import BaseModel, Field
 
@@ -48,6 +50,29 @@ QUOTES_DIR = REPO_ROOT / "data" / "synthetic_quotes"
 SOURCE_EXTS = {".txt", ".csv", ".md", ".docx", ".eml"}
 
 app = FastAPI(title="procure-agent HITL", version="0.1.0")
+
+# Browser-side dev calls hit the API directly during local dev; in production
+# the Next.js service proxies same-origin so CORS is moot. ``CORS_ORIGINS`` is
+# a comma-separated allowlist; defaults cover the local dev origin.
+_default_origins = "http://localhost:3000,http://127.0.0.1:3000"
+_cors_origins = [
+    o.strip()
+    for o in os.environ.get("CORS_ORIGINS", _default_origins).split(",")
+    if o.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    """Railway healthcheck. Cheap; intentionally does not hit the DB."""
+    return {"status": "ok"}
 
 
 def _database_url() -> str:
