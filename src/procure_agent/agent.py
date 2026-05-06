@@ -47,7 +47,7 @@ READ_FILE_TOOL = {
                 "type": "string",
                 "description": (
                     "Filename within data/synthetic_quotes/, "
-                    "e.g. '01_aloe_corp_clean_tabular.txt'."
+                    "e.g. 'aloe-corp_AC-2026-0421.txt'."
                 ),
             },
         },
@@ -155,7 +155,7 @@ def run(user_msg: str, max_turns: int = 10) -> Message:
     raise RuntimeError(f"max_turns={max_turns} exceeded")
 
 
-DEFAULT_FIXTURE = "01_aloe_corp_clean_tabular.txt"
+DEFAULT_FIXTURE = "aloe-corp_AC-2026-0421.txt"
 JSON_BLOCK = re.compile(r"```json\s*(.*?)\s*```", re.DOTALL)
 
 

@@ -1,4 +1,4 @@
-# notes — quote_nutrigrow_2026-04-25
+# notes — nutrigrow_NG-26-0418
 
 `.expected.json` covers extracted-correctly only. Below is the downstream-eval rubric. Headline edge case: substitution + buyer-decision-required → must NOT auto-process.
 

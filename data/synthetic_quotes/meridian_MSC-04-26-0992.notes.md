@@ -1,4 +1,4 @@
-# notes — quote_meridian_supply_2026-04-24
+# notes — meridian_MSC-04-26-0992
 
 `.expected.json` covers extracted-correctly only. Below is the downstream-eval rubric. Stacked-exceptions integration test.
 

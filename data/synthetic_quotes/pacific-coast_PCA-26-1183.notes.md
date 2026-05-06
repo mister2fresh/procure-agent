@@ -1,4 +1,4 @@
-# notes — quote_pacific_amendments_2026-04-25
+# notes — pacific-coast_PCA-26-1183
 
 `.expected.json` covers extracted-correctly only (per-line currency, pack splits, raw_notes). Below is the downstream-eval rubric.
 

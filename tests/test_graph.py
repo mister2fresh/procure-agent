@@ -64,7 +64,7 @@ def test_tools_node_dispatches_read_file() -> None:
             type_="tool_use",
             id="t1",
             name="read_file",
-            input={"filename": "01_aloe_corp_clean_tabular.txt"},
+            input={"filename": "aloe-corp_AC-2026-0421.txt"},
         ),
     )
     update = tools_node(state)
@@ -82,7 +82,7 @@ def test_tools_node_skips_text_blocks() -> None:
             type_="tool_use",
             id="t1",
             name="read_file",
-            input={"filename": "01_aloe_corp_clean_tabular.txt"},
+            input={"filename": "aloe-corp_AC-2026-0421.txt"},
         ),
     )
     update = tools_node(state)

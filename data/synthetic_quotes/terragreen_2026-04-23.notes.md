@@ -1,4 +1,4 @@
-# notes — quote_terragreen_email_2026-04-23
+# notes — terragreen_2026-04-23
 
 `.expected.json` covers extracted-correctly only. Below is the downstream-eval rubric. This fixture is the v1 stress-test for the **completeness** rubric.
 

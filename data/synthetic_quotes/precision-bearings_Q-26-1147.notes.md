@@ -1,4 +1,4 @@
-# notes — quote_precision_bearings_2026-04-22
+# notes — precision-bearings_Q-26-1147
 
 `.expected.json` covers extracted-correctly only. Below is the downstream-eval rubric. Tests `.docx` ingestion + dense prose-MOQ + line-level constraint extraction.
 

@@ -1,4 +1,4 @@
-# notes — quote_acme_fasteners_2026-04-22
+# notes — acme-fasteners_Q-2026-04881
 
 **No `.expected.json` golden yet.** Deferred — see "v1 extraction caveats" below.
 

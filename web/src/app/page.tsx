@@ -1,18 +1,10 @@
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { fetchFixtures } from "@/lib/api";
-import { startRunAction } from "./actions";
+import { fetchFixtureSource, fetchFixtures } from "@/lib/api";
+import { FixturePicker } from "./fixture-picker";
 
 export default async function Home(): Promise<React.ReactElement> {
   const fixtures = await fetchFixtures();
+  const initial = fixtures[0] ?? "";
+  const initialSource = initial ? await fetchFixtureSource(initial).catch(() => null) : null;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-16">
@@ -25,36 +17,7 @@ export default async function Home(): Promise<React.ReactElement> {
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Start a new run</CardTitle>
-          <CardDescription>
-            Each fixture is a quote in a different shape — clean tabular CSVs, prose emails,
-            mixed-unit pack sizes, multi-row tier breaks. The same pipeline handles all of them.
-          </CardDescription>
-        </CardHeader>
-        <form action={startRunAction}>
-          <CardContent className="space-y-3">
-            <Label htmlFor="fixture_filename">Fixture</Label>
-            <select
-              id="fixture_filename"
-              name="fixture_filename"
-              required
-              defaultValue={fixtures[0] ?? ""}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
-            >
-              {fixtures.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-          </CardContent>
-          <CardFooter className="justify-end">
-            <Button type="submit">Run extraction</Button>
-          </CardFooter>
-        </form>
-      </Card>
+      <FixturePicker fixtures={fixtures} initialSource={initialSource} />
     </div>
   );
 }
