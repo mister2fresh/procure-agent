@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -96,9 +97,18 @@ export function FixturePicker({
           </div>
         </CardContent>
         <CardFooter className="justify-end">
-          <Button type="submit">Run extraction</Button>
+          <SubmitButton />
         </CardFooter>
       </form>
     </Card>
+  );
+}
+
+function SubmitButton(): React.ReactElement {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending} aria-busy={pending}>
+      {pending ? "Running extraction…" : "Run extraction"}
+    </Button>
   );
 }
