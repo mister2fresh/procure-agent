@@ -208,8 +208,21 @@ def _validate_override_skus(decisions: list[LineDecision]) -> None:
 
 @app.get("/fixtures")
 def list_fixtures() -> list[str]:
-    """List source-fixture filenames discoverable to the graph."""
-    return sorted(p.name for p in QUOTES_DIR.iterdir() if p.suffix in SOURCE_EXTS)
+    """List demo-ready fixtures — source files that have a paired .expected.json.
+
+    Fixtures without a golden are kept in the corpus intentionally (e.g. shapes
+    the v1 schema can't yet represent) but are not shown to the demo dropdown,
+    since the agent will fail extraction against them.
+    """
+    sources = [p for p in QUOTES_DIR.iterdir() if p.suffix in SOURCE_EXTS]
+    visible: list[str] = []
+    for src in sources:
+        stem = src.name.removesuffix(src.suffix)
+        if stem.endswith(".notes"):
+            continue
+        if (QUOTES_DIR / f"{stem}.expected.json").is_file():
+            visible.append(src.name)
+    return sorted(visible)
 
 
 @app.get("/fixtures/{filename}", response_class=PlainTextResponse)
@@ -231,10 +244,21 @@ def get_fixture_source(filename: Annotated[str, PathParam()]) -> str:
 
 @app.get("/products/search", response_model=list[Product])
 def products_search(q: str = "", limit: int = 20) -> list[Product]:
-    """Typeahead search across SKU and description for the override picker."""
+    """Typeahead search across SKU and description for the override picker.
+
+    Wraps in a try/except so a backend failure surfaces as a 500 with the
+    exception message in ``detail`` — beats grepping logs when production
+    behaves differently from local.
+    """
     capped = max(1, min(limit, 50))
-    with connect() as conn:
-        return search_products(conn, q.strip(), limit=capped)
+    try:
+        with connect() as conn:
+            return search_products(conn, q.strip(), limit=capped)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(e).__name__}: {e}",
+        ) from e
 
 
 @app.post("/runs", response_model=RunSnapshot)
