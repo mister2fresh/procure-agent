@@ -20,7 +20,8 @@ export function FixturePicker({
   fixtures: string[];
   initialSource: string | null;
 }): React.ReactElement {
-  const initial = fixtures[0] ?? "";
+  const visible = fixtures.filter((f) => !f.includes(".notes."));
+  const initial = visible[0] ?? "";
   const [selected, setSelected] = useState(initial);
   const [source, setSource] = useState<string | null>(initialSource);
   const [loading, setLoading] = useState(false);
@@ -63,7 +64,7 @@ export function FixturePicker({
               onChange={(e) => setSelected(e.target.value)}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
             >
-              {fixtures.map((f) => (
+              {visible.map((f) => (
                 <option key={f} value={f}>
                   {f}
                 </option>

@@ -104,7 +104,7 @@ def read_file(filename: str) -> str:
         raise ValueError(f"fixture not found: {filename}")
     if target.suffix == ".docx":
         return _read_docx(target)
-    return target.read_text()
+    return target.read_text(encoding="utf-8")
 
 
 HANDLERS = {"read_file": read_file}

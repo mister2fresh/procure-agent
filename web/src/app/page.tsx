@@ -3,7 +3,7 @@ import { FixturePicker } from "./fixture-picker";
 
 export default async function Home(): Promise<React.ReactElement> {
   const fixtures = await fetchFixtures();
-  const initial = fixtures[0] ?? "";
+  const initial = fixtures.find((f) => !f.includes(".notes.")) ?? "";
   const initialSource = initial ? await fetchFixtureSource(initial).catch(() => null) : null;
 
   return (
