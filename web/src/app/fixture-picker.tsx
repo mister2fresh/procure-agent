@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,9 +25,14 @@ export function FixturePicker({
   const [selected, setSelected] = useState(initial);
   const [source, setSource] = useState<string | null>(initialSource);
   const [loading, setLoading] = useState(false);
+  const isFirstRun = useRef(true);
 
   useEffect(() => {
-    if (!selected || selected === initial) return;
+    if (!selected) return;
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     fetch(`/api/fixtures/${encodeURIComponent(selected)}`, { cache: "no-store" })
@@ -41,7 +46,7 @@ export function FixturePicker({
     return () => {
       cancelled = true;
     };
-  }, [selected, initial]);
+  }, [selected]);
 
   return (
     <Card>
