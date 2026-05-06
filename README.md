@@ -57,7 +57,7 @@ State is a `TypedDict` with `messages: Annotated[list[dict], operator.add]` — 
 
 **Extraction canonicalizes structured tokens; prose stays verbatim.** UoM lowercases to a closed set (`kg`, `lb`, `oz`, `gal`, `l`, `each`, `case`); SKUs uppercase; dates ISO; money is plain `Decimal` at source precision (no schema-layer 2dp quantizer — Acme's fastener pricing is at three decimals and the validator was truncating it). Supplier names, descriptions, payment/shipping terms, and `raw_notes` extract verbatim — title-casing supplier names or paraphrasing terms across documents are *matching* concerns, not extraction concerns. Matching is `UPPER(supplier_name) = UPPER(?)` on the join, not a normalization rule embedded in the prompt that would tangle the eval.
 
-**Customer ref ≠ RFQ ref.** `customer_ref` is the supplier's persistent ID for the buyer (Customer #, Account #) — same value across every quote. `rfq_ref` is the per-transaction reference this quote responds to (RFQ #, Buyer Ref:). Procurement systems collapse these at their peril; downstream PO generation needs both columns distinct.
+**Customer ref ≠ RFQ ref.** `customer_ref` is the supplier's persistent ID for the buyer (Customer #, Account #) — same value across every quote. `rfq_ref` is the per-transaction reference this quote responds to (RFQ #, Buyer Ref:). Downstream PO generation needs both columns distinct.
 
 **Tool failures are out-of-band, not schema-relaxed.** `read_file` failures emit `ERROR: <description>` and short-circuit to a typed exception in the loop's JSON-extraction step. Earlier draft instructed the model to emit a JSON object with all-null fields on tool failure; rejected because the schema mirrors what lands in `quotes.line_items` JSONB, and loosening domain types to model a tool failure would force every downstream consumer to null-check fields that are required for a real quote.
 
@@ -75,22 +75,24 @@ State is a `TypedDict` with `messages: Annotated[list[dict], operator.add]` — 
 
 A pytest-driven harness (`evals/run.py`) runs the full graph against every fixture in `data/synthetic_quotes/` with a paired `.expected.json` golden, compares predicted vs. golden field-by-field through a tolerance comparator (`evals/comparator.py`), and writes a timestamped artifact under `evals/runs/`. The comparator buckets each field into `match` / `format_drift` (whitespace-only on prose fields, numeric Decimal equality on money) / `value_mismatch`, and pairs line items by `(requested_sku, supplier_sku, quantity)` with bucket-then-positional fallback for collision cases.
 
-Locked baseline (Haiku 4.5 extraction, 14 fixtures, 65 line items):
+Locked baseline — Claude Haiku 4.5 extraction, 15 fixtures, 70 line items, artifact `evals/runs/20260506T181606Z.json`:
 
 | Metric | Value |
 | --- | --- |
-| Field match | **760 / 784 (96.9%)** |
-| Format drift | 1 |
-| Value mismatch | 23 |
+| Field match | **817 / 843 (96.9%)** |
+| Format drift | 0 |
+| Value mismatch | 26 |
 | Line P/R | 1.00 on every fixture |
 | Cascade — `supplier_sku_exact` | 54 |
-| Cascade — `requested_sku_exact` | 1 (the NutriGrow KMEAL-44 → KMEAL-50 substitution) |
+| Cascade — `requested_sku_exact` | 1 (NutriGrow KMEAL-44 → KMEAL-50 substitution) |
+| Cascade — `supplier_sku_fuzzy` | 5 (terragreen typos: `FME-50`, `BLMD-50`, `ALFM50`, `GRENS-CC`, `BIOCH-2CFT`) |
+| Cascade — `requested_sku_fuzzy` | 0 |
 | Cascade — `description_fuzzy` | 0 |
 | Cascade — `unmatched` | 10 |
 | Flag — `price_variance` | 42 |
 | Flag — `currency_mismatch` | 5 (legitimate CAD/USD divergences) |
-| Flag — `pack_size_drift` | 25 |
-| Flag — `uom_mismatch` | 7 |
+| Flag — `pack_size_drift` | 26 |
+| Flag — `uom_mismatch` | 1 |
 
 The fixture corpus is hand-crafted to exercise specific extraction and matching edge cases:
 
