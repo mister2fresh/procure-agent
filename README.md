@@ -94,6 +94,8 @@ Locked baseline — Claude Haiku 4.5 extraction, 15 fixtures, 70 line items, art
 | Flag — `pack_size_drift` | 26 |
 | Flag — `uom_mismatch` | 1 |
 
+One of the five `supplier_sku_fuzzy` hits is wrong on supplier-knowledge grounds: `FME-50` (TerraGreen, intended `FEM-50`) fuzzy-matches `FBM-50` — Pacific Agri's feather meal — at 0.40 confidence, because both candidates are one edit from the typo and trigram tiebreak picks alphabetically. This is the override picker's reason for existing: an operator selects the correct SKU from a `/products/search` typeahead, the override path swaps `matched_sku` and re-runs `_flag_one` against the override product, and any divergence against the right SKU (price, currency, pack, UoM) fires fresh before the line goes downstream. A fixture set that only exercised correct fuzzy-recovery would understate what the picker is doing.
+
 The fixture corpus is hand-crafted to exercise specific extraction and matching edge cases:
 
 - Tier pricing, MOQ-in-prose, FX-quoted line, missing freight terms
@@ -105,7 +107,7 @@ The fixture corpus is hand-crafted to exercise specific extraction and matching 
 
 ## Failure mode encountered during the build
 
-**Low-confidence description-fuzzy matches cascading bogus divergence flags.** The cascade was designed so that lines with no usable SKU (prose-only quotes) fall through to `description_fuzzy` and get a "best-effort" trigram match. First full-corpus eval ran clean on field-match (98.0%) but the flag layer fired 52 `currency_mismatch` flags and 27 `pack_size_drift` flags — most of them noise. Three description-fuzzy hits surfaced the structural problem: in a prose fixture, "drum heat seal closures, kraft" trigram-matched `LINER-DRUM-CL` (a roll of drum liners — not the same product) at 0.36 confidence, then cascaded a 92.3% `price_variance` flag and an asymmetric-None `pack_size_drift`. The HITL operator would have seen "review this 95% price drift on a product we're not actually sure we matched."
+**Low-confidence description-fuzzy matches cascading bogus divergence flags.** Diagnosed and fixed pre-Haiku-swap; the field-match numbers in this section are from the Sonnet 4.6 runs that surfaced the bug. The cascade was designed so that lines with no usable SKU (prose-only quotes) fall through to `description_fuzzy` and get a "best-effort" trigram match. First full-corpus eval ran clean on field-match (98.0%) but the flag layer fired 52 `currency_mismatch` flags and 27 `pack_size_drift` flags — most of them noise. Three description-fuzzy hits surfaced the structural problem: in a prose fixture, "drum heat seal closures, kraft" trigram-matched `LINER-DRUM-CL` (a roll of drum liners — not the same product) at 0.36 confidence, then cascaded a 92.3% `price_variance` flag and an asymmetric-None `pack_size_drift`. The HITL operator would have seen "review this 95% price drift on a product we're not actually sure we matched."
 
 Two fixes available, picked the structural one:
 - **(a) raise the pg_trgm threshold from 0.3 → 0.45.** Pushes wrong matches to UNMATCHED, where they belong.
