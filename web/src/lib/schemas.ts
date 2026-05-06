@@ -70,6 +70,11 @@ export const quoteSchema = z.object({
 });
 export type Quote = z.infer<typeof quoteSchema>;
 
+// last_paid_unit_price comes from a Postgres NUMERIC. FastAPI/Pydantic v2's
+// Decimal serialization isn't perfectly stable across configs (string vs JSON
+// number), so accept both shapes and normalize to string for display.
+const decimalStringSchema = z.union([z.string(), z.number()]).transform(String);
+
 export const productSchema = z.object({
   sku: z.string(),
   description: z.string(),
@@ -77,7 +82,7 @@ export const productSchema = z.object({
   uom: z.string(),
   pack_size: z.string().nullable(),
   preferred_supplier_name: z.string(),
-  last_paid_unit_price: z.string(),
+  last_paid_unit_price: decimalStringSchema,
   last_paid_currency: z.string().nullable(),
   last_paid_date: z.string(),
   reorder_point: z.number().int(),

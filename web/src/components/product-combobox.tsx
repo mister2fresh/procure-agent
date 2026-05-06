@@ -33,6 +33,7 @@ export function ProductCombobox({
   const [results, setResults] = useState<Product[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,10 +41,13 @@ export function ProductCombobox({
     const ctrl = new AbortController();
     const t = setTimeout(() => {
       setLoading(true);
+      setError(null);
       fetchSearch(query, ctrl.signal)
         .then((rows) => setResults(rows))
         .catch((e) => {
-          if (e.name !== "AbortError") setResults([]);
+          if (e.name === "AbortError") return;
+          setResults([]);
+          setError(e instanceof Error ? e.message : String(e));
         })
         .finally(() => setLoading(false));
     }, 180);
@@ -89,6 +93,8 @@ export function ProductCombobox({
         <div className="max-h-64 w-full overflow-auto rounded-md border border-input bg-popover shadow-sm">
           {loading && results.length === 0 ? (
             <div className="px-3 py-2 text-xs text-muted-foreground">Searching…</div>
+          ) : error ? (
+            <div className="px-3 py-2 text-xs text-destructive">Search failed: {error}</div>
           ) : results.length === 0 ? (
             <div className="px-3 py-2 text-xs text-muted-foreground">No matches</div>
           ) : (

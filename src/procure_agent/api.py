@@ -34,6 +34,7 @@ from fastapi.responses import PlainTextResponse
 from langgraph.checkpoint.postgres import PostgresSaver
 from pydantic import BaseModel, Field
 
+from procure_agent.agent import read_file
 from procure_agent.db import connect, get_products_by_skus, search_products
 from procure_agent.graph import build_graph
 from procure_agent.schemas import Product
@@ -213,13 +214,19 @@ def list_fixtures() -> list[str]:
 
 @app.get("/fixtures/{filename}", response_class=PlainTextResponse)
 def get_fixture_source(filename: Annotated[str, PathParam()]) -> str:
-    """Return the raw text of a source fixture so the UI can show it next to the extraction."""
+    """Return fixture text so the UI can show it next to the extraction.
+
+    Delegates to the agent's ``read_file`` so docx fixtures get rendered to plain
+    text the same way the extraction pipeline reads them.
+    """
     if "/" in filename or "\\" in filename or filename.startswith("."):
         raise HTTPException(status_code=400, detail="invalid fixture filename")
-    path = QUOTES_DIR / filename
-    if path.suffix not in SOURCE_EXTS or not path.is_file():
+    if (QUOTES_DIR / filename).suffix not in SOURCE_EXTS:
         raise HTTPException(status_code=404, detail=f"fixture not found: {filename}")
-    return path.read_text(encoding="utf-8")
+    try:
+        return read_file(filename)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @app.get("/products/search", response_model=list[Product])
