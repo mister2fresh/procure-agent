@@ -22,7 +22,7 @@ The canonical planning artifact is `procure-agent-handoff.md` at the repo root. 
 - Server actions for mutations; browser never speaks directly to FastAPI (Next.js proxies `/api/*` to the api service via `API_INTERNAL_URL`)
 
 **Deploy**
-- Two Railway services from this repo: `api` (root `/`) and `web` (root `/web`). Each has its own Dockerfile + `railway.toml`. Public URL is the web service; CORS is moot in prod (same-origin).
+- No hosted instance (retired 2026-10-24); the project runs locally. Deploy config is retained for redeploy: two Railway services from this repo, `api` (root `/`) and `web` (root `/web`), each with its own Dockerfile + `railway.toml`. Public URL was the web service; CORS is moot when deployed (same-origin).
 
 ## Commands
 
